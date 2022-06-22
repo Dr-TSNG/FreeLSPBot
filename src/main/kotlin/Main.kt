@@ -50,15 +50,18 @@ suspend fun main() {
             sendMessage(it.chat, Constants.help)
         }
 
-        onCommand("help") {
-            sendMessage(it.chat, Constants.help)
-        }
-
         onCommand("rq") {
             logger.debug("/rq command from {${it.chat.id.chatId}}")
             val (photo, ans) = CS408.pickUp()
             sendPhoto(it.chat, InputFile.fromFile(photo))
-            sendQuizPoll(it.chat, "选择正确的选项", listOf("A", "B", "C", "D"), ans[0] - 'A')
+            sendQuizPoll(it.chat, "选择正确的选项", listOf("A", "B", "C", "D"), ans[0] - 'A', false)
+        }
+
+        onCommand("rqa") {
+            logger.debug("/rqa command from {${it.chat.id.chatId}}")
+            val (photo, ans) = CS408.pickUp()
+            sendPhoto(it.chat, InputFile.fromFile(photo))
+            sendQuizPoll(it.chat, "选择正确的选项", listOf("A", "B", "C", "D"), ans[0] - 'A', true)
         }
 
         onNewChatMembers(
@@ -78,11 +81,11 @@ suspend fun main() {
                 val verifier = sendPhoto(
                     message.chat,
                     InputFile.fromFile(photo),
-                    String.format(Constants.newMemberReply, "${user.firstName} ${user.lastName}"),
+                    String.format(Constants.newMemberReply, "${user.firstName} ${user.lastName}", config.verifyTimeout),
                     replyMarkup = CS408.replyMarkup
                 )
                 val timeoutListener = launch {
-                    delay(Duration.ofMinutes(3))
+                    delay(Duration.ofMinutes(config.verifyTimeout.toLong()))
                     dataCallbackMap.remove(verifier.messageId)
                     kickUser(message.chat, user, true)
                     deleteMessage(verifier)
@@ -109,7 +112,7 @@ suspend fun main() {
                         else -> {
                             logger.info("Wrong answer from ${Utils.parseUser(user)}")
                             timeoutListener.cancel()
-                            kickUser(message.chat, user, true, DateTimeSpan(seconds = 60))
+                            kickUser(message.chat, user, true, DateTimeSpan(minutes = config.verifyFailedBanTime))
                             deleteMessage(verifier)
                         }
                     }
