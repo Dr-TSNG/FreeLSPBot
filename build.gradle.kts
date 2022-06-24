@@ -16,7 +16,9 @@ dependencies {
     implementation("dev.inmo:tgbotapi:2.1.0")
     implementation("io.github.microutils:kotlin-logging-jvm:2.1.23")
     implementation("io.ktor:ktor-client-okhttp:2.0.2")
-    runtimeOnly("org.slf4j:slf4j-log4j12:1.7.36")
+    runtimeOnly("org.apache.logging.log4j:log4j-slf4j-impl:2.17.2")
+    runtimeOnly("org.apache.logging.log4j:log4j-core:2.17.2")
+    runtimeOnly("org.apache.logging.log4j:log4j-api:2.17.2")
     testImplementation(kotlin("test"))
 }
 
