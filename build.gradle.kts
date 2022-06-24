@@ -13,7 +13,7 @@ repositories {
 }
 
 dependencies {
-    implementation("dev.inmo:tgbotapi:2.0.3")
+    implementation("dev.inmo:tgbotapi:2.1.0")
     implementation("io.github.microutils:kotlin-logging-jvm:2.1.23")
     implementation("io.ktor:ktor-client-okhttp:2.0.2")
     runtimeOnly("org.slf4j:slf4j-log4j12:1.7.36")
@@ -26,6 +26,7 @@ tasks.test {
 
 tasks.withType<KotlinCompile> {
     kotlinOptions.jvmTarget = "17"
+    kotlinOptions.freeCompilerArgs = listOf("-Xcontext-receivers")
 }
 
 tasks.jar {

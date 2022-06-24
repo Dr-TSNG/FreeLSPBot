@@ -9,9 +9,10 @@ object Constants {
 
     val newMemberReply = """
         新成员 %s，请在 %d 分钟内完成以下题目以证明你不是机器人
+        你有 %d 次机会可以更换题目
     """.trimIndent()
 
     const val changeQuestion = "换一道题"
-    const val passVerification = "新成员 %s %s 通过验证"
-    const val failVerification = "%s %s 未通过验证，已被移除群组"
+    const val passVerification = "新成员 %s 通过验证"
+    const val failVerification = "%s 未通过验证，已被移除群组"
 }
