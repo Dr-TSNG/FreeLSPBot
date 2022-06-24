@@ -10,16 +10,19 @@ import dev.inmo.tgbotapi.types.toTelegramDate
 
 object Utils {
 
-    fun parseUser(user: User) =
-        "${user.firstName} ${user.lastName}${user.username?.let { " (${it.username})" }}[${user.id.chatId}]"
+    val User.fullName: String
+        get() = "$firstName $lastName".trim()
+
+    val User.detailName: String
+        get() = "$fullName ${username?.let { "(${it.username})" }}[${id.chatId}]"
 
     suspend fun BehaviourContext.kickUser(chat: Chat, user: User, sendMessage: Boolean, banTime: DateTimeSpan? = null) {
         if (banChatMember(chat.id, user, banTime?.let { DateTime.now().plus(it).toTelegramDate() })) {
             banTime ?: unbanChatMember(chat.id, user)
-            logger.info("Kick ${parseUser(user)} from chat ${chat.id.chatId}")
-            if (sendMessage) sendMessage(chat, String.format(Constants.failVerification, user.firstName, user.lastName))
+            logger.info("Kick ${user.detailName} from chat ${chat.id.chatId}")
+            if (sendMessage) sendMessage(chat, String.format(Constants.failVerification, user.fullName))
         } else {
-            logger.warn("Failed to kick ${parseUser(user)} from chat ${chat.id.chatId}")
+            logger.warn("Failed to kick ${user.detailName} from chat ${chat.id.chatId}")
         }
     }
 }
