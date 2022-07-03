@@ -57,7 +57,7 @@ class NewChatMemberVerification private constructor(
             timeoutScope.launch(block = timeout)
 
             dataCallbackMap[verifier.messageId] = NewChatMemberVerification(user.id.chatId, question.second, changes) {
-                logger.debug { "Answer from ${user.detailName}: ${it.data}" }
+                logger.debug("Answer from ${user.detailName}: ${it.data}")
                 withContext(singleThreadDispatcher) {
                     when (it.data) {
                         Constants.changeQuestion -> {

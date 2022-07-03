@@ -3,6 +3,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 plugins {
     kotlin("jvm") version "1.7.0"
     kotlin("plugin.serialization") version "1.7.0"
+    id("com.github.johnrengelman.shadow") version "7.1.2"
 }
 
 group = "icu.nullptr"
@@ -15,7 +16,7 @@ repositories {
 dependencies {
     implementation("dev.inmo:tgbotapi:2.1.0")
     implementation("io.github.microutils:kotlin-logging-jvm:2.1.23")
-    implementation("io.ktor:ktor-client-okhttp:2.0.2")
+    implementation("io.ktor:ktor-client-okhttp-jvm:2.0.3")
     runtimeOnly("org.apache.logging.log4j:log4j-slf4j-impl:2.17.2")
     runtimeOnly("org.apache.logging.log4j:log4j-core:2.17.2")
     runtimeOnly("org.apache.logging.log4j:log4j-api:2.17.2")
@@ -33,10 +34,4 @@ tasks.withType<KotlinCompile> {
 
 tasks.jar {
     manifest.attributes("Main-Class" to "MainKt")
-
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-
-    configurations.compileClasspath.get().forEach {
-        from(if (it.isDirectory) it else zipTree(it))
-    }
 }

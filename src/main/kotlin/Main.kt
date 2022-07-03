@@ -16,6 +16,7 @@ import function.CS408
 import function.NewChatMemberVerification
 import io.ktor.client.engine.*
 import io.ktor.client.engine.okhttp.*
+import io.ktor.client.plugins.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
@@ -36,7 +37,11 @@ suspend fun main() {
 
     bot.buildBehaviourWithLongPolling(
         defaultExceptionsHandler = {
-            if (it !is CancellationException) {
+            val ignore = listOf(
+                CancellationException::class,
+                HttpRequestTimeoutException::class
+            )
+            if (it::class !in ignore) {
                 logger.error("Exception happened!", it)
             }
         }
@@ -65,11 +70,11 @@ suspend fun main() {
             initialFilter = { config.groupWhiteList.contains(it.chat.id.chatId) }
         ) { message ->
             message.chatEvent.members.forEach { user ->
-                logger.info { "New member ${user.detailName} in chat ${message.chat.id.chatId}" }
+                logger.info("New member ${user.detailName} in chat ${message.chat.id.chatId}")
                 if (restrictChatMember(message.chat.id, user, permissions = RestrictionsChatPermissions)) {
-                    logger.info { "Restrict " + user.detailName }
+                    logger.info("Restrict " + user.detailName)
                 } else {
-                    logger.debug { "No restrict permission in chat ${message.chat.id.chatId}" }
+                    logger.debug("No restrict permission in chat ${message.chat.id.chatId}")
                     return@onNewChatMembers
                 }
                 NewChatMemberVerification.create(message.chat, user, 3)
@@ -77,7 +82,7 @@ suspend fun main() {
         }
 
         onLeftChatMember {
-            logger.info { "Left member ${it.chatEvent.user.detailName} in chat ${it.chat.id.chatId}" }
+            logger.info("Left member ${it.chatEvent.user.detailName} in chat ${it.chat.id.chatId}")
         }
 
         onDataCallbackQuery(
