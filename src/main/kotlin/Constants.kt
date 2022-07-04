@@ -15,4 +15,5 @@ object Constants {
     const val changeQuestion = "换一道题"
     const val passVerification = "新成员 %s 通过验证"
     const val failVerification = "%s 未通过验证，已被移除群组"
+    const val errorOccurred = "发生错误，正在重试"
 }

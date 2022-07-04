@@ -16,6 +16,8 @@ import dev.inmo.tgbotapi.requests.abstracts.InputFile
 import dev.inmo.tgbotapi.types.chat.Chat
 import dev.inmo.tgbotapi.types.chat.LeftRestrictionsChatPermissions
 import dev.inmo.tgbotapi.types.chat.User
+import dev.inmo.tgbotapi.types.message.abstracts.ContentMessage
+import dev.inmo.tgbotapi.types.message.content.PhotoContent
 import dev.inmo.tgbotapi.types.queries.callback.DataCallbackQuery
 import kotlinx.coroutines.*
 import kotlinx.coroutines.time.delay
@@ -40,12 +42,22 @@ class NewChatMemberVerification private constructor(
             val timeoutScope = CoroutineScope(Dispatchers.Unconfined)
 
             val question = CS408.pickUp()
-            var verifier = sendPhoto(
-                chat,
-                InputFile.fromFile(question.first),
-                String.format(Constants.newMemberReply, user.fullName, config.verifyTimeout, 3),
-                replyMarkup = CS408.replyMarkup
-            )
+            var verifier: ContentMessage<PhotoContent>
+            while (true) {
+                try {
+                    verifier = sendPhoto(
+                        chat,
+                        InputFile.fromFile(question.first),
+                        String.format(Constants.newMemberReply, user.fullName, config.verifyTimeout, 3),
+                        replyMarkup = CS408.replyMarkup
+                    )
+                    break
+                } catch (e: Exception) {
+                    logger.error("Failed to send photo", e)
+                    sendMessage(chat, Constants.errorOccurred)
+                    delay(Duration.ofSeconds(1))
+                }
+            }
             val timeout: suspend CoroutineScope.() -> Unit = {
                 delay(Duration.ofMinutes(config.verifyTimeout.toLong()))
                 withContext(singleThreadDispatcher) {
@@ -64,12 +76,27 @@ class NewChatMemberVerification private constructor(
                             if (changesLeft > 0) {
                                 changesLeft--
                                 val newQuestion = CS408.pickUp()
-                                val newVerifier = sendPhoto(
-                                    chat,
-                                    InputFile.fromFile(newQuestion.first),
-                                    String.format(Constants.newMemberReply, user.fullName, config.verifyTimeout, changesLeft),
-                                    replyMarkup = CS408.replyMarkup
-                                )
+                                var newVerifier: ContentMessage<PhotoContent>
+                                while (true) {
+                                    try {
+                                        newVerifier = sendPhoto(
+                                            chat,
+                                            InputFile.fromFile(newQuestion.first),
+                                            String.format(
+                                                Constants.newMemberReply,
+                                                user.fullName,
+                                                config.verifyTimeout,
+                                                changesLeft
+                                            ),
+                                            replyMarkup = CS408.replyMarkup
+                                        )
+                                        break
+                                    } catch (e: Exception) {
+                                        logger.error("Failed to send photo", e)
+                                        sendMessage(chat, Constants.errorOccurred)
+                                        delay(Duration.ofSeconds(1))
+                                    }
+                                }
                                 timeoutScope.coroutineContext.cancelChildren()
                                 timeoutScope.launch(block = timeout)
 
