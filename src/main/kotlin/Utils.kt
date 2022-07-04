@@ -7,6 +7,8 @@ import dev.inmo.tgbotapi.extensions.behaviour_builder.BehaviourContext
 import dev.inmo.tgbotapi.types.chat.Chat
 import dev.inmo.tgbotapi.types.chat.User
 import dev.inmo.tgbotapi.types.toTelegramDate
+import kotlinx.coroutines.delay
+import java.time.Duration
 
 object Utils {
 
@@ -27,3 +29,28 @@ object Utils {
         }
     }
 }
+
+class Retry<T>(private val block: suspend () -> T) {
+
+    private var exceptionHandler: (suspend (Throwable) -> Unit)? = null
+
+    fun onFailure(handler: suspend (Throwable) -> Unit): Retry<T> {
+        exceptionHandler = handler
+        return this
+    }
+
+    suspend operator fun invoke(delayOnFailure: Duration): T {
+        while (true) {
+            runCatching {
+                block()
+            }.onSuccess {
+                return it
+            }.onFailure {
+                exceptionHandler?.invoke(it)
+            }
+            delay(delayOnFailure.toMillis())
+        }
+    }
+}
+
+fun <T> retry(block: suspend () -> T) = Retry(block)
