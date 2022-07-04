@@ -22,6 +22,7 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import mu.KotlinLogging
 import java.io.File
+import java.net.SocketException
 
 val config = Json.decodeFromString<Config>(File("data/config.json").readText())
 
@@ -39,7 +40,8 @@ suspend fun main() {
         defaultExceptionsHandler = { e ->
             val ignore = listOf(
                 CancellationException::class,
-                HttpRequestTimeoutException::class
+                HttpRequestTimeoutException::class,
+                SocketException::class
             )
             if (!ignore.stream().anyMatch { it.isInstance(e) }) {
                 logger.error("Exception happened!", e)
