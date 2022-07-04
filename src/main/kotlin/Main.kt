@@ -36,13 +36,13 @@ suspend fun main() {
     logger.info("Bot start. WhiteList: ${config.groupWhiteList}")
 
     bot.buildBehaviourWithLongPolling(
-        defaultExceptionsHandler = {
+        defaultExceptionsHandler = { e ->
             val ignore = listOf(
                 CancellationException::class,
                 HttpRequestTimeoutException::class
             )
-            if (it::class !in ignore) {
-                logger.error("Exception happened!", it)
+            if (!ignore.stream().anyMatch { it.isInstance(e) }) {
+                logger.error("Exception happened!", e)
             }
         }
     ) {
