@@ -16,7 +16,8 @@ object Utils {
     val User.detailName: String
         get() = "$fullName ${username?.let { "(${it.username})" }}[${id.chatId}]"
 
-    suspend fun BehaviourContext.kickUser(chat: Chat, user: User, sendMessage: Boolean, banTime: DateTimeSpan? = null) {
+    context(BehaviourContext)
+    suspend fun kickUser(chat: Chat, user: User, sendMessage: Boolean, banTime: DateTimeSpan? = null) {
         if (banChatMember(chat.id, user, banTime?.let { DateTime.now().plus(it).toTelegramDate() })) {
             banTime ?: unbanChatMember(chat.id, user)
             logger.info("Kick ${user.detailName} from chat ${chat.id.chatId}")
