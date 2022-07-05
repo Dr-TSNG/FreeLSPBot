@@ -17,6 +17,7 @@ import function.NewChatMemberVerification
 import io.ktor.client.engine.*
 import io.ktor.client.engine.okhttp.*
 import io.ktor.client.plugins.*
+import io.ktor.network.sockets.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
@@ -41,7 +42,8 @@ suspend fun main() {
             val ignore = listOf(
                 CancellationException::class,
                 HttpRequestTimeoutException::class,
-                SocketException::class
+                SocketException::class,
+                SocketTimeoutException::class
             )
             if (!ignore.stream().anyMatch { it.isInstance(e) }) {
                 logger.error("Exception happened!", e)
@@ -56,16 +58,26 @@ suspend fun main() {
 
         onCommand("rq") {
             logger.debug("/rq command from {${it.chat.id.chatId}}")
-            val (photo, ans) = CS408.pickUp()
-            sendPhoto(it.chat, InputFile.fromFile(photo))
-            sendQuizPoll(it.chat, "选择正确的选项", listOf("A", "B", "C", "D"), ans[0] - 'A', false)
+            runCatching {
+                val (photo, ans) = CS408.pickUp()
+                sendPhoto(it.chat, InputFile.fromFile(photo))
+                sendQuizPoll(it.chat, "选择正确的选项", listOf("A", "B", "C", "D"), ans[0] - 'A', false)
+            }.onFailure { e ->
+                logger.error("/rq command error!", e)
+                sendMessage(it.chat, String.format(Constants.errorOccurred, e.message))
+            }
         }
 
         onCommand("rqa") {
             logger.debug("/rqa command from {${it.chat.id.chatId}}")
-            val (photo, ans) = CS408.pickUp()
-            sendPhoto(it.chat, InputFile.fromFile(photo))
-            sendQuizPoll(it.chat, "选择正确的选项", listOf("A", "B", "C", "D"), ans[0] - 'A', true)
+            runCatching {
+                val (photo, ans) = CS408.pickUp()
+                sendPhoto(it.chat, InputFile.fromFile(photo))
+                sendQuizPoll(it.chat, "选择正确的选项", listOf("A", "B", "C", "D"), ans[0] - 'A', true)
+            }.onFailure { e ->
+                logger.error("/rqa command error!", e)
+                sendMessage(it.chat, String.format(Constants.errorOccurred, e.message))
+            }
         }
 
         onNewChatMembers(

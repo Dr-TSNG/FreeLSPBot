@@ -54,6 +54,7 @@ object CS408 {
             }
             val r = pool.random()
             pool -= r
+            logger.debug("pick up question ${r.first.path}")
             return@withContext r
         }
 }
