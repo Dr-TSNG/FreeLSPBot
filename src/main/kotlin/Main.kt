@@ -64,7 +64,7 @@ suspend fun main() {
                 sendQuizPoll(it.chat, "选择正确的选项", listOf("A", "B", "C", "D"), ans[0] - 'A', false)
             }.onFailure { e ->
                 logger.error("/rq command error!", e)
-                sendMessage(it.chat, String.format(Constants.errorOccurred, e.message))
+                sendMessage(it.chat, Constants.errorOccurred(e))
             }
         }
 
@@ -76,7 +76,7 @@ suspend fun main() {
                 sendQuizPoll(it.chat, "选择正确的选项", listOf("A", "B", "C", "D"), ans[0] - 'A', true)
             }.onFailure { e ->
                 logger.error("/rqa command error!", e)
-                sendMessage(it.chat, String.format(Constants.errorOccurred, e.message))
+                sendMessage(it.chat, Constants.errorOccurred(e))
             }
         }
 
