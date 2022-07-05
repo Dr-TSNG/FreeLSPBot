@@ -50,7 +50,7 @@ class NewChatMemberVerification private constructor(
                 )
             }.onFailure { e ->
                 logger.error("Failed to send photo", e)
-                sendMessage(chat, Constants.errorOccurred)
+                sendMessage(chat, String.format(Constants.errorOccurred, e.message))
             }.invoke(Duration.ofSeconds(1))
 
             val timeout: suspend CoroutineScope.() -> Unit = {
@@ -85,7 +85,7 @@ class NewChatMemberVerification private constructor(
                                     )
                                 }.onFailure { e ->
                                     logger.error("Failed to send photo", e)
-                                    sendMessage(chat, Constants.errorOccurred)
+                                    sendMessage(chat, String.format(Constants.errorOccurred, e.message))
                                 }.invoke(Duration.ofSeconds(1))
 
                                 timeoutScope.coroutineContext.cancelChildren()
