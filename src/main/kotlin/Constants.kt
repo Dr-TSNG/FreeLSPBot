@@ -15,5 +15,6 @@ object Constants {
     const val changeQuestion = "换一道题"
     const val passVerification = "新成员 %s 通过验证"
     const val failVerification = "%s 未通过验证，已被移除群组"
-    const val errorOccurred = "发生未知错误\n%s"
+
+    fun errorOccurred(e: Throwable) = "发生未知错误\n" + e.message?.replace(config.token, "******")
 }
