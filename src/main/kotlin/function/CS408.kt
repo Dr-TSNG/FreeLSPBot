@@ -18,7 +18,7 @@ object CS408 {
     @Serializable
     private data class QuestionSet(
         val dir: String,
-        val questions: List<String>
+        val questions: List<String?>
     )
 
     @Serializable
@@ -46,8 +46,9 @@ object CS408 {
                 logger.info("Question pool is empty")
                 val all = Json.decodeFromString<All>(File("data/408/collections.json").readText())
                 pool = all.collections.flatMap {
-                    it.questions.mapIndexed { index, ans ->
-                        File("data/408/${it.dir}/${index + 1}.png") to ans
+                    it.questions.mapIndexedNotNull { index, ans ->
+                        if (ans == null) null
+                        else File("data/408/${it.dir}/${index + 1}.png") to ans
                     }
                 }.toMutableSet()
                 logger.info("Refilled pool with ${pool.size} questions")
