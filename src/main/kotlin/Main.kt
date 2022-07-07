@@ -1,10 +1,10 @@
 import Utils.detailName
 import dev.inmo.tgbotapi.extensions.api.bot.getMe
-import dev.inmo.tgbotapi.extensions.api.buildBot
 import dev.inmo.tgbotapi.extensions.api.chat.members.restrictChatMember
 import dev.inmo.tgbotapi.extensions.api.send.media.sendPhoto
 import dev.inmo.tgbotapi.extensions.api.send.polls.sendQuizPoll
 import dev.inmo.tgbotapi.extensions.api.send.sendMessage
+import dev.inmo.tgbotapi.extensions.api.telegramBot
 import dev.inmo.tgbotapi.extensions.behaviour_builder.buildBehaviourWithLongPolling
 import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onCommand
 import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onDataCallbackQuery
@@ -12,27 +12,38 @@ import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onLeftCh
 import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onNewChatMembers
 import dev.inmo.tgbotapi.requests.abstracts.InputFile
 import dev.inmo.tgbotapi.types.chat.RestrictionsChatPermissions
-import function.CS408
 import function.NewChatMemberVerification
+import function.TwiFucker
+import io.ktor.client.*
 import io.ktor.client.engine.*
 import io.ktor.client.engine.okhttp.*
 import io.ktor.client.plugins.*
 import io.ktor.network.sockets.*
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import mu.KotlinLogging
+import okhttp3.internal.http2.StreamResetException
+import util.CS408
+import util.GooglePlay
 import java.io.File
 import java.net.SocketException
 
 val config = Json.decodeFromString<Config>(File("data/config.json").readText())
 
+val proxiedHttpClient = HttpClient(OkHttp) {
+    engine {
+        proxy = ProxyBuilder.socks(config.proxyHost, config.proxyPort)
+    }
+}
+
 val logger = KotlinLogging.logger {}
 
 suspend fun main() {
-    val bot = buildBot(config.token) {
-        ktorClientEngineFactory = OkHttp
-        proxy = ProxyBuilder.socks(config.proxyHost, config.proxyPort)
+    val bot = telegramBot(config.token, config.apiUrl)
+    GooglePlay.init().onFailure {
+        logger.error("Failed to initialize Google Play API", it)
     }
 
     logger.info("Bot start. WhiteList: ${config.groupWhiteList}")
@@ -43,7 +54,8 @@ suspend fun main() {
                 CancellationException::class,
                 HttpRequestTimeoutException::class,
                 SocketException::class,
-                SocketTimeoutException::class
+                SocketTimeoutException::class,
+                StreamResetException::class
             )
             if (!ignore.stream().anyMatch { it.isInstance(e) }) {
                 logger.error("Exception happened!", e)
@@ -51,6 +63,10 @@ suspend fun main() {
         }
     ) {
         logger.info(getMe().toString())
+
+        if (GooglePlay.instance != null) {
+            launch { TwiFucker.eventLoop() }
+        }
 
         onCommand("start") {
             sendMessage(it.chat, Constants.help)
@@ -60,7 +76,7 @@ suspend fun main() {
             logger.debug("/rq command from {${it.chat.id.chatId}}")
             runCatching {
                 val (photo, ans) = CS408.pickUp()
-                sendPhoto(it.chat, InputFile.fromFile(photo))
+                sendPhoto(it.chat, InputFile(photo))
                 sendQuizPoll(it.chat, "选择正确的选项", listOf("A", "B", "C", "D"), ans[0] - 'A', false)
             }.onFailure { e ->
                 logger.error("/rq command error!", e)
@@ -72,7 +88,7 @@ suspend fun main() {
             logger.debug("/rqa command from {${it.chat.id.chatId}}")
             runCatching {
                 val (photo, ans) = CS408.pickUp()
-                sendPhoto(it.chat, InputFile.fromFile(photo))
+                sendPhoto(it.chat, InputFile(photo))
                 sendQuizPoll(it.chat, "选择正确的选项", listOf("A", "B", "C", "D"), ans[0] - 'A', true)
             }.onFailure { e ->
                 logger.error("/rqa command error!", e)

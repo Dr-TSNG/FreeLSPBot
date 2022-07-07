@@ -11,9 +11,11 @@ version = "1.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
+    maven("https://jitpack.io")
 }
 
 dependencies {
+    implementation("com.gitlab.AuroraOSS:gplayapi:0e224071")
     implementation("dev.inmo:tgbotapi:2.1.0")
     implementation("io.github.microutils:kotlin-logging-jvm:2.1.23")
     implementation("io.ktor:ktor-client-okhttp-jvm:2.0.3")

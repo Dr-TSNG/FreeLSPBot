@@ -1,4 +1,4 @@
-package function
+package util
 
 import Constants
 import dev.inmo.tgbotapi.extensions.utils.types.buttons.inlineKeyboard
@@ -37,7 +37,6 @@ object CS408 {
             +CallbackDataInlineKeyboardButton("D", "D")
         }
     }
-
 
     @OptIn(ExperimentalCoroutinesApi::class)
     suspend fun pickUp(): Pair<File, String> =
