@@ -21,6 +21,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.time.delay
 import logger
 import retry
+import util.CS408
 import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
@@ -44,14 +45,14 @@ class NewChatMemberVerification private constructor(
                 val q = CS408.pickUp()
                 q to sendPhoto(
                     chat,
-                    InputFile.fromFile(q.first),
+                    InputFile(q.first),
                     String.format(Constants.newMemberReply, user.fullName, config.verifyTimeout, 3),
                     replyMarkup = CS408.replyMarkup
                 )
             }.onFailure { e ->
                 logger.error("Failed to send photo", e)
                 sendMessage(chat, Constants.errorOccurred(e))
-            }.invoke(Duration.ofSeconds(1))
+            }.limit(-1).invoke(Duration.ofSeconds(1))
 
             val timeout: suspend CoroutineScope.() -> Unit = {
                 delay(Duration.ofMinutes(config.verifyTimeout.toLong()))
@@ -74,7 +75,7 @@ class NewChatMemberVerification private constructor(
                                     val q = CS408.pickUp()
                                     q to sendPhoto(
                                         chat,
-                                        InputFile.fromFile(q.first),
+                                        InputFile(q.first),
                                         String.format(
                                             Constants.newMemberReply,
                                             user.fullName,
@@ -86,7 +87,7 @@ class NewChatMemberVerification private constructor(
                                 }.onFailure { e ->
                                     logger.error("Failed to send photo", e)
                                     sendMessage(chat, Constants.errorOccurred(e))
-                                }.invoke(Duration.ofSeconds(1))
+                                }.limit(-1).invoke(Duration.ofSeconds(1))
 
                                 timeoutScope.coroutineContext.cancelChildren()
                                 timeoutScope.launch(block = timeout)
