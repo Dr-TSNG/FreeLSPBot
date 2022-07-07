@@ -8,6 +8,7 @@ import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
+import io.ktor.network.sockets.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -99,6 +100,8 @@ object TwiFucker {
                         text = String.format("Twitter %s (%d)", app.versionName, app.versionCode)
                     )
                 }.onFailure { e ->
+                    if (e is SocketTimeoutException && e.cause?.cause?.message == "Socket closed") return@onFailure
+                    // TODO: It is strange, but it does work.
                     logger.error("Failed to post to channel", e)
                     return@withContext
                 }

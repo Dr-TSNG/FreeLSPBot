@@ -54,8 +54,7 @@ suspend fun main() {
                 CancellationException::class,
                 HttpRequestTimeoutException::class,
                 SocketException::class,
-                SocketTimeoutException::class,
-                StreamResetException::class
+                SocketTimeoutException::class
             )
             if (!ignore.stream().anyMatch { it.isInstance(e) }) {
                 logger.error("Exception happened!", e)
