@@ -81,6 +81,7 @@ object TwiFucker {
                 val args = arrayOf(
                     "$tmpDir/${files[0].name}",
                     "-m", "data/TwiFucker/${config.module}",
+                    "-l", "2",
                     "-o", tmpDir
                 )
                 main.invoke(null, args)
