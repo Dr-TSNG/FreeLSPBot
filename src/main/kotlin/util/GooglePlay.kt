@@ -17,7 +17,9 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import logger
 import proxiedHttpClient
+import retry
 import java.io.File
+import java.time.Duration
 
 @Serializable
 private class Api(val email: String, val token: String)
@@ -112,23 +114,36 @@ private object GHttpClient : IHttpClient {
     }
 }
 
-class GooglePlay private constructor(private val authData: AuthData, ) {
+class GooglePlay private constructor(private var authData: AuthData) {
     companion object {
         var instance: GooglePlay? = null
 
         fun init() = runCatching {
-            val api = Json.decodeFromString<Api>(File("data/googleplay/api.json").readText())
-            val authData = AuthHelper.using(GHttpClient).build(api.email, api.token, "device.properties")
-            instance = GooglePlay(authData)
+            instance = GooglePlay(login())
             logger.info("Google Play API initialized")
+        }
+
+        private fun login(): AuthData {
+            val api = Json.decodeFromString<Api>(File("data/googleplay/api.json").readText())
+            return AuthHelper.using(GHttpClient).build(api.email, api.token, "device.properties")
         }
     }
 
-    fun getAppInfo(packageName: String) = runCatching {
-        AppDetailsHelper(authData).using(GHttpClient).getAppByPackageName(packageName)
+    suspend fun getAppInfo(packageName: String) = runCatching {
+        retry {
+            AppDetailsHelper(authData).using(GHttpClient).getAppByPackageName(packageName)
+        }.onFailure {
+            logger.info("Failed to get app info, maybe the token is expired")
+            authData = login()
+        }.invoke(Duration.ofSeconds(1))
     }
 
-    fun downloadApp(app: App) = runCatching {
-        PurchaseHelper(authData).using(GHttpClient).purchase(app.packageName, app.versionCode, app.offerType)
+    suspend fun downloadApp(app: App) = runCatching {
+        retry {
+            PurchaseHelper(authData).using(GHttpClient).purchase(app.packageName, app.versionCode, app.offerType)
+        }.onFailure {
+            logger.info("Failed to get app info, maybe the token is expired")
+            authData = login()
+        }.invoke(Duration.ofSeconds(1))
     }
 }
