@@ -10,6 +10,7 @@ import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onComman
 import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onDataCallbackQuery
 import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onLeftChatMember
 import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onNewChatMembers
+import dev.inmo.tgbotapi.extensions.utils.extensions.raw.from
 import dev.inmo.tgbotapi.requests.abstracts.InputFile
 import dev.inmo.tgbotapi.types.chat.RestrictionsChatPermissions
 import function.NewChatMemberVerification
@@ -24,7 +25,6 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import mu.KotlinLogging
-import okhttp3.internal.http2.StreamResetException
 import util.CS408
 import util.GooglePlay
 import java.io.File
@@ -71,8 +71,26 @@ suspend fun main() {
             sendMessage(it.chat, Constants.help)
         }
 
+        onCommand("qb") {
+            logger.debug("/rqb command from ${it.from?.detailName}")
+            val (bankSize, poolSize) = CS408.getBankStatus()
+            sendMessage(it.chat, String.format(Constants.questionBankStatus, bankSize, poolSize))
+        }
+
+        onCommand("rqb") {
+            val user = it.from ?: return@onCommand
+            logger.debug("/rqb command from ${user.detailName}")
+            if (user.id.chatId != config.admin) {
+                sendMessage(it.chat, Constants.notAdmin)
+            } else {
+                CS408.refreshPool()
+                val (bankSize, _) = CS408.getBankStatus()
+                sendMessage(it.chat, String.format(Constants.refreshQuestionBank, bankSize))
+            }
+        }
+
         onCommand("rq") {
-            logger.debug("/rq command from {${it.chat.id.chatId}}")
+            logger.debug("/rq command from {${it.from?.detailName}}")
             runCatching {
                 val (photo, ans) = CS408.pickUp()
                 sendPhoto(it.chat, InputFile(photo))
@@ -84,7 +102,7 @@ suspend fun main() {
         }
 
         onCommand("rqa") {
-            logger.debug("/rqa command from {${it.chat.id.chatId}}")
+            logger.debug("/rqa command from {${it.from?.detailName}}")
             runCatching {
                 val (photo, ans) = CS408.pickUp()
                 sendPhoto(it.chat, InputFile(photo))
