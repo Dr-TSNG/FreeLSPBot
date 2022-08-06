@@ -72,7 +72,7 @@ suspend fun main() {
         }
 
         onCommand("qb") {
-            logger.debug("/rqb command from ${it.from?.detailName}")
+            logger.debug("/qb command from ${it.from?.detailName}")
             val (bankSize, poolSize) = CS408.getBankStatus()
             sendMessage(it.chat, String.format(Constants.questionBankStatus, bankSize, poolSize))
         }
@@ -90,7 +90,7 @@ suspend fun main() {
         }
 
         onCommand("rq") {
-            logger.debug("/rq command from {${it.from?.detailName}}")
+            logger.debug("/rq command from ${it.from?.detailName}")
             runCatching {
                 val (photo, ans) = CS408.pickUp()
                 sendPhoto(it.chat, InputFile(photo))
@@ -102,7 +102,7 @@ suspend fun main() {
         }
 
         onCommand("rqa") {
-            logger.debug("/rqa command from {${it.from?.detailName}}")
+            logger.debug("/rqa command from ${it.from?.detailName}")
             runCatching {
                 val (photo, ans) = CS408.pickUp()
                 sendPhoto(it.chat, InputFile(photo))
