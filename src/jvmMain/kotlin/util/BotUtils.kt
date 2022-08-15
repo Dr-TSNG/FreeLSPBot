@@ -21,7 +21,7 @@ object BotUtils {
     val User.fullNameExt: String
         get() = buildString {
             append(fullName)
-            username?.let { append(" $username") }
+            username?.let { append(" ${it.username}") }
         }
 
     val User.detailName: String
