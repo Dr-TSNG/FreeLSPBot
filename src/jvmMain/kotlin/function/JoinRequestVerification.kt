@@ -1,6 +1,8 @@
 package function
 
+import Chinese
 import Constants
+import English
 import WebAppDataWrapper
 import botSelf
 import config
@@ -38,6 +40,7 @@ import plugin.Captcha
 import util.BotUtils.detailName
 import util.BotUtils.fullName
 import util.BotUtils.fullNameExt
+import util.BotUtils.isChinese
 import util.BotUtils.kickUser
 import util.StringUtils
 import java.io.File
@@ -49,6 +52,7 @@ private class Verification(
     val token: String,
     val user: User,
     val chat: PublicChat,
+    val language: Constants,
     val privateVerifyMessage: Message,
     val groupVerifyMessage: Message
 ) {
@@ -85,13 +89,14 @@ private suspend fun TelegramBot.createVerification(chat: PublicChat, user: User)
     do {
         token = StringUtils.getRandomString(16)
     } while (userPending.containsKey(token))
+    val language = if (user.isChinese) Chinese else English
     val privateVerifyMessage = sendTextMessage(
         chat = user,
-        text = String.format(Constants.privateVerifyMessage, user.fullName, config.verifyTimeout, config.changeCaptchaChances),
+        text = String.format(language.privateVerifyMessage, user.fullName, config.verifyTimeout, config.changeCaptchaChances),
         protectContent = true,
         replyMarkup = inlineKeyboard {
-            row { webAppButton(Constants.startVerify, config.webApiUrl + "/captcha/?token=$token") }
-            row { +CallbackDataInlineKeyboardButton(Constants.changeQuestion, ChangeQuestionCallback.encode(token)) }
+            row { webAppButton(language.startVerify, config.webApiUrl + "/captcha/?token=$token") }
+            row { +CallbackDataInlineKeyboardButton(language.changeQuestion, ChangeQuestionCallback.encode(token)) }
         }
     )
     val groupVerifyMessage = sendTextMessage(
@@ -105,7 +110,7 @@ private suspend fun TelegramBot.createVerification(chat: PublicChat, user: User)
     )
 
     userPending[token] = Verification(
-        token, user, chat,
+        token, user, chat, language,
         privateVerifyMessage, groupVerifyMessage
     ).also {
         it.scope.launch {
@@ -115,7 +120,7 @@ private suspend fun TelegramBot.createVerification(chat: PublicChat, user: User)
                 logger.info("Verification timeout for ${user.detailName} in chat ${chat.detailName}")
                 declineChatJoinRequest(chat, user)
                 kickUser(chat, user, config.verifyFail2Ban)
-                sendTextMessage(user, String.format(Constants.failVerifyPrivate, config.verifyFail2Ban))
+                sendTextMessage(user, String.format(language.failVerifyPrivate, config.verifyFail2Ban))
                 sendTextMessage(chat, String.format(Constants.failVerifyGroup, user.fullName))
                 it.doClean(this@createVerification)
             }
@@ -162,7 +167,7 @@ fun Routing.configureJoinRequestRouting(
                         "Success" -> {
                             logger.info("${user.detailName} passed verification to chat ${chat.detailName}")
                             bot.approveChatJoinRequest(chat, user)
-                            bot.sendTextMessage(user, Constants.passVerifyPrivate)
+                            bot.sendTextMessage(user, language.passVerifyPrivate)
                             bot.sendTextMessage(chat, String.format(Constants.passVerifyGroup, user.fullName))
                             doClean(bot)
                         }
@@ -171,7 +176,7 @@ fun Routing.configureJoinRequestRouting(
                             logger.info("${user.detailName} failed verification to chat ${chat.detailName}")
                             bot.declineChatJoinRequest(chat, user)
                             bot.kickUser(chat, user, config.verifyFail2Ban)
-                            bot.sendTextMessage(user, String.format(Constants.failVerifyPrivate, config.verifyFail2Ban))
+                            bot.sendTextMessage(user, String.format(language.failVerifyPrivate, config.verifyFail2Ban))
                             bot.sendTextMessage(chat, String.format(Constants.failVerifyGroup, user.fullName))
                             doClean(bot)
                         }
@@ -202,7 +207,7 @@ suspend fun installJoinRequestVerification() {
                 if (!userPending.containsKey(it.token)) return@withLock
                 if (it.chances > 0) {
                     if (it.sessionId == null || Captcha.getVerifyResult(it.sessionId!!) != "Pending") {
-                        sendTextMessage(it.user, Constants.cannotChangeQuestion)
+                        sendTextMessage(it.user, it.language.cannotChangeQuestion)
                         return@withLock
                     }
                     it.chances--
@@ -210,11 +215,11 @@ suspend fun installJoinRequestVerification() {
                     editMessageText(
                         chat = it.user,
                         messageId = it.privateVerifyMessage.messageId,
-                        text = String.format(Constants.privateVerifyMessage, it.user.fullName, config.verifyTimeout, it.chances),
+                        text = String.format(it.language.privateVerifyMessage, it.user.fullName, config.verifyTimeout, it.chances),
                         replyMarkup = inlineKeyboard {
-                            row { webAppButton(Constants.startVerify, config.webApiUrl + "/captcha/?token=" + it.token) }
+                            row { webAppButton(it.language.startVerify, config.webApiUrl + "/captcha/?token=" + it.token) }
                             if (it.chances > 0) {
-                                row { +CallbackDataInlineKeyboardButton(Constants.changeQuestion, ChangeQuestionCallback.encode(it.token)) }
+                                row { +CallbackDataInlineKeyboardButton(it.language.changeQuestion, ChangeQuestionCallback.encode(it.token)) }
                             }
                         }
                     )
@@ -233,7 +238,7 @@ suspend fun installJoinRequestVerification() {
             if (!userPending.containsKey(verification.token)) return@withLock
             logger.info("Admin ${admin.user.detailName} manually passed ${verification.user.detailName} in chat ${verification.chat.detailName}")
             approveChatJoinRequest(verification.chat, verification.user)
-            sendTextMessage(verification.user, Constants.manualPassPrivate)
+            sendTextMessage(verification.user, verification.language.manualPassPrivate)
             sendTextMessage(verification.chat, String.format(Constants.manualPassGroup, query.from.fullName, verification.user.fullName))
             verification.doClean(this)
         }

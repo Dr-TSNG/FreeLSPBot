@@ -5,10 +5,12 @@ import com.soywiz.klock.TimeSpan
 import dev.inmo.tgbotapi.bot.TelegramBot
 import dev.inmo.tgbotapi.extensions.api.chat.members.banChatMember
 import dev.inmo.tgbotapi.extensions.api.chat.members.unbanChatMember
+import dev.inmo.tgbotapi.extensions.utils.asWithOptionalLanguageCode
 import dev.inmo.tgbotapi.types.chat.Chat
 import dev.inmo.tgbotapi.types.chat.PublicChat
 import dev.inmo.tgbotapi.types.chat.User
 import dev.inmo.tgbotapi.types.toTelegramDate
+import dev.inmo.tgbotapi.utils.PreviewFeature
 import logger
 import kotlin.time.Duration
 import kotlin.time.DurationUnit
@@ -26,6 +28,10 @@ object BotUtils {
 
     val User.detailName: String
         get() = "$fullNameExt [${id.chatId}]"
+
+    @OptIn(PreviewFeature::class)
+    val User.isChinese: Boolean
+        get() = asWithOptionalLanguageCode()?.languageCode?.startsWith("zh") ?: false
 
     val PublicChat.detailName: String
         get() = "$title [${id.chatId}]"
