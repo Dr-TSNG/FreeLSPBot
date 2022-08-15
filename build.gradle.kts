@@ -1,3 +1,5 @@
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+import org.jetbrains.kotlin.gradle.targets.jvm.KotlinJvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
@@ -17,7 +19,10 @@ repositories {
 
 kotlin {
     targets {
-        jvm()
+        jvm {
+            registerShadowJar("FreeLSPBot", "MainKt")
+        }
+
         js(IR) {
             browser()
             binaries.executable()
@@ -58,11 +63,29 @@ kotlin {
     }
 }
 
+fun KotlinJvmTarget.registerShadowJar(archiveName: String?, mainClassName: String?) {
+    val targetName = name
+    compilations.named("main") {
+        tasks {
+            val shadowJar = register<ShadowJar>("${targetName}ShadowJar") {
+                group = "build"
+                from(output)
+                configurations = listOf(runtimeDependencyFiles)
+                archiveName?.let { archiveBaseName.set(archiveName) }
+                archiveVersion.set("")
+                mainClassName?.let { manifest.attributes("Main-Class" to it) }
+
+                mergeServiceFiles()
+            }
+
+            getByName("${targetName}Jar") {
+                finalizedBy(shadowJar)
+            }
+        }
+    }
+}
+
 tasks.withType<KotlinCompile> {
     kotlinOptions.jvmTarget = "17"
     kotlinOptions.freeCompilerArgs = listOf("-Xcontext-receivers")
-}
-
-tasks.withType<Jar> {
-    manifest.attributes("Main-Class" to "MainKt")
 }
