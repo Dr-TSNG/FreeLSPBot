@@ -12,6 +12,7 @@ data class Config(
     val admin: Long,
     val groupWhiteList: Set<Long>,
     val captchaApiUrl: String,
+    val changeCaptchaChances: Int,
     val verifyTimeout: String,
     val verifyFail2Ban: String
 )

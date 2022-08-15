@@ -14,9 +14,11 @@ object Constants {
         新成员 %s，请在 %s 内完成以下题目以证明你不是机器人
         你有 %d 次机会可以更换题目
     """.trimIndent()
-    const val groupVerifyMessage = "新成员 %s 正在进行入群认证"
+    const val groupVerifyMessage = "新成员 %s 正在进行入群验证"
 
     const val startVerify = "开始验证"
+    const val changeQuestion = "更换题目"
+    const val cannotChangeQuestion = "您尚未加载验证码或已进行验证，无法更换题目"
     const val manualPass = "人工通过（管理员）"
     const val manualPassPrivate = "管理员人工通过了你的入群验证"
     const val manualPassGroup = "管理员 %s 人工通过了 %s 的入群验证"

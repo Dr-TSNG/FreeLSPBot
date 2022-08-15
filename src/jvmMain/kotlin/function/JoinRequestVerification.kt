@@ -9,6 +9,7 @@ import dev.inmo.tgbotapi.extensions.api.chat.get.getChatAdministrators
 import dev.inmo.tgbotapi.extensions.api.chat.invite_links.approveChatJoinRequest
 import dev.inmo.tgbotapi.extensions.api.chat.invite_links.declineChatJoinRequest
 import dev.inmo.tgbotapi.extensions.api.deleteMessage
+import dev.inmo.tgbotapi.extensions.api.edit.text.editMessageText
 import dev.inmo.tgbotapi.extensions.api.send.sendTextMessage
 import dev.inmo.tgbotapi.extensions.behaviour_builder.BehaviourContext
 import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onChatJoinRequest
@@ -54,6 +55,7 @@ private class Verification(
     val mutex = Mutex()
     val scope = CoroutineScope(Dispatchers.Default)
     var sessionId: String? = null
+    var chances = config.changeCaptchaChances
 
     suspend fun doClean(bot: TelegramBot) {
         bot.deleteMessage(privateVerifyMessage)
@@ -61,6 +63,12 @@ private class Verification(
         userPending.remove(token)
         scope.cancel()
     }
+}
+
+private object ChangeQuestionCallback {
+    fun encode(token: String): String = "changeQuestion:$token"
+    fun isValid(data: String): Boolean = data.startsWith("changeQuestion:")
+    fun decode(data: String): Verification? = userPending[data.substringAfter(':')]
 }
 
 private object ManualPassCallback {
@@ -79,11 +87,10 @@ private suspend fun TelegramBot.createVerification(chat: PublicChat, user: User)
     } while (userPending.containsKey(token))
     val privateVerifyMessage = sendTextMessage(
         chat = user,
-        text = String.format(Constants.privateVerifyMessage, user.fullName, config.verifyTimeout, 3),
+        text = String.format(Constants.privateVerifyMessage, user.fullName, config.verifyTimeout, config.changeCaptchaChances),
         replyMarkup = inlineKeyboard {
-            row {
-                webAppButton(Constants.startVerify, config.webApiUrl + "/captcha/?token=$token")
-            }
+            row { webAppButton(Constants.startVerify, config.webApiUrl + "/captcha/?token=$token") }
+            row { +CallbackDataInlineKeyboardButton(Constants.changeQuestion, ChangeQuestionCallback.encode(token)) }
         }
     )
     val groupVerifyMessage = sendTextMessage(
@@ -180,7 +187,38 @@ suspend fun installJoinRequestVerification() {
         initialFilter = { config.groupWhiteList.contains(it.chat.id.chatId) }
     ) { req ->
         if (getChatAdministrators(req.chat).any { it.user.id == botSelf.id }) {
-            createVerification(req.chat, req.from)
+            if (userPending.none { it.value.user.id == req.from.id }) {
+                createVerification(req.chat, req.from)
+            }
+        }
+    }
+
+    onDataCallbackQuery(
+        initialFilter = { ChangeQuestionCallback.isValid(it.data) }
+    ) { query ->
+        ChangeQuestionCallback.decode(query.data)?.let {
+            it.mutex.withLock {
+                if (!userPending.containsKey(it.token)) return@withLock
+                if (it.chances > 0) {
+                    if (it.sessionId == null || Captcha.getVerifyResult(it.sessionId!!) != "Pending") {
+                        sendTextMessage(it.user, Constants.cannotChangeQuestion)
+                        return@withLock
+                    }
+                    it.chances--
+                    it.sessionId = null
+                    editMessageText(
+                        chat = it.user,
+                        messageId = it.privateVerifyMessage.messageId,
+                        text = String.format(Constants.privateVerifyMessage, it.user.fullName, config.verifyTimeout, it.chances),
+                        replyMarkup = inlineKeyboard {
+                            row { webAppButton(Constants.startVerify, config.webApiUrl + "/captcha/?token=" + it.token) }
+                            if (it.chances > 0) {
+                                row { +CallbackDataInlineKeyboardButton(Constants.changeQuestion, ChangeQuestionCallback.encode(it.token)) }
+                            }
+                        }
+                    )
+                }
+            }
         }
     }
 
