@@ -3,6 +3,8 @@ import dev.inmo.tgbotapi.extensions.api.send.sendMessage
 import dev.inmo.tgbotapi.extensions.api.telegramBot
 import dev.inmo.tgbotapi.extensions.behaviour_builder.buildBehaviourWithLongPolling
 import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onCommand
+import dev.inmo.tgbotapi.extensions.utils.updates.retrieving.flushAccumulatedUpdates
+import dev.inmo.tgbotapi.types.chat.ExtendedBot
 import dev.inmo.tgbotapi.utils.TelegramAPIUrlsKeeper
 import function.configureJoinRequestRouting
 import function.installCS408
@@ -33,6 +35,7 @@ val proxiedHttpClient = HttpClient(OkHttp) {
 }
 
 val logger = KotlinLogging.logger {}
+lateinit var botSelf: ExtendedBot
 
 suspend fun main() {
     val telegramBotAPIUrlsKeeper = TelegramAPIUrlsKeeper(config.token, config.botApiUrl)
@@ -46,6 +49,7 @@ suspend fun main() {
         }
     }.start(wait = false)
 
+    bot.flushAccumulatedUpdates()
     bot.buildBehaviourWithLongPolling(
         defaultExceptionsHandler = { e ->
             val ignore = listOf(
@@ -59,7 +63,8 @@ suspend fun main() {
             }
         }
     ) {
-        logger.info(getMe().toString())
+        botSelf = getMe()
+        logger.info(botSelf.toString())
 
         onCommand("start") {
             sendMessage(it.chat, Constants.help)

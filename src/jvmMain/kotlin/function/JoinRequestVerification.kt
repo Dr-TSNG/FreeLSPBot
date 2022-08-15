@@ -2,9 +2,9 @@ package function
 
 import Constants
 import WebAppDataWrapper
+import botSelf
 import config
 import dev.inmo.tgbotapi.bot.TelegramBot
-import dev.inmo.tgbotapi.extensions.api.bot.getMe
 import dev.inmo.tgbotapi.extensions.api.chat.get.getChatAdministrators
 import dev.inmo.tgbotapi.extensions.api.chat.invite_links.approveChatJoinRequest
 import dev.inmo.tgbotapi.extensions.api.chat.invite_links.declineChatJoinRequest
@@ -179,7 +179,7 @@ suspend fun installJoinRequestVerification() {
     onChatJoinRequest(
         initialFilter = { config.groupWhiteList.contains(it.chat.id.chatId) }
     ) { req ->
-        if (getChatAdministrators(req.chat).any { it.user.id == getMe().id }) {
+        if (getChatAdministrators(req.chat).any { it.user.id == botSelf.id }) {
             createVerification(req.chat, req.from)
         }
     }
