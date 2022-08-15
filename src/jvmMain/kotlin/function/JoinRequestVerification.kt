@@ -120,8 +120,8 @@ fun Routing.configureJoinRequestRouting(
     bot: TelegramBot
 ) = route("captcha/") {
     static {
-        files(File("build/distributions"))
-        default("build/distributions/index.html")
+        files(File("data/captcha"))
+        default("data/captcha/index.html")
     }
     post("load") {
         val requestBody = call.receiveText()
