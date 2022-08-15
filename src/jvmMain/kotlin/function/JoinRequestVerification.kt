@@ -162,7 +162,7 @@ fun Routing.configureJoinRequestRouting(
                             logger.info("${user.detailName} passed verification to chat ${chat.detailName}")
                             bot.approveChatJoinRequest(chat, user)
                             bot.sendTextMessage(user, Constants.passVerifyPrivate)
-                            bot.sendTextMessage(chat, String.format(Constants.passVerifyGroup, user.fullNameExt))
+                            bot.sendTextMessage(chat, String.format(Constants.passVerifyGroup, user.fullName))
                             doClean(bot)
                         }
 
@@ -171,7 +171,7 @@ fun Routing.configureJoinRequestRouting(
                             bot.declineChatJoinRequest(chat, user)
                             bot.kickUser(chat, user, config.verifyFail2Ban)
                             bot.sendTextMessage(user, String.format(Constants.failVerifyPrivate, config.verifyFail2Ban))
-                            bot.sendTextMessage(chat, String.format(Constants.failVerifyGroup, user.fullNameExt))
+                            bot.sendTextMessage(chat, String.format(Constants.failVerifyGroup, user.fullName))
                             doClean(bot)
                         }
                     }
