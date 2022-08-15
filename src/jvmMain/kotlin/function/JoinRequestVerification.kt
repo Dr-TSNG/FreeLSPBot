@@ -88,6 +88,7 @@ private suspend fun TelegramBot.createVerification(chat: PublicChat, user: User)
     val privateVerifyMessage = sendTextMessage(
         chat = user,
         text = String.format(Constants.privateVerifyMessage, user.fullName, config.verifyTimeout, config.changeCaptchaChances),
+        protectContent = true,
         replyMarkup = inlineKeyboard {
             row { webAppButton(Constants.startVerify, config.webApiUrl + "/captcha/?token=$token") }
             row { +CallbackDataInlineKeyboardButton(Constants.changeQuestion, ChangeQuestionCallback.encode(token)) }
