@@ -1,9 +1,5 @@
-package util
+package plugin
 
-import Constants
-import dev.inmo.tgbotapi.extensions.utils.types.buttons.inlineKeyboard
-import dev.inmo.tgbotapi.types.buttons.InlineKeyboardButtons.CallbackDataInlineKeyboardButton
-import dev.inmo.tgbotapi.utils.row
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
@@ -11,7 +7,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import logger
-import withReentrantLock
+import util.withReentrantLock
 import java.io.File
 
 object CS408 {
@@ -30,16 +26,6 @@ object CS408 {
     private val mutex = Mutex()
     private var bankSize = 0
     private var pool = mutableSetOf<Pair<File, String>>()
-
-    val replyMarkup = inlineKeyboard {
-        row { +CallbackDataInlineKeyboardButton(Constants.changeQuestion, Constants.changeQuestion) }
-        row {
-            +CallbackDataInlineKeyboardButton("A", "A")
-            +CallbackDataInlineKeyboardButton("B", "B")
-            +CallbackDataInlineKeyboardButton("C", "C")
-            +CallbackDataInlineKeyboardButton("D", "D")
-        }
-    }
 
     fun getBankStatus() = bankSize to pool.size
 

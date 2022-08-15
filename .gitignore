@@ -3,4 +3,5 @@
 .vscode
 build
 data
+kotlin-js-store
 logs

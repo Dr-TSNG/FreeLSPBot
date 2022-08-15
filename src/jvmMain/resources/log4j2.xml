@@ -3,8 +3,8 @@
 
     <Properties>
         <Property name="LOG_ROOT">logs</Property>
-        <Property name="LOG_PATTERN_CONSOLE">%highlight{[%5p]} [%t] (%F:%L) - %m%n</Property>
-        <Property name="LOG_PATTERN_FILE">[%5p] [%t] (%F:%L) - %m%n</Property>
+        <Property name="LOG_PATTERN_CONSOLE">%highlight{[%5p]} (%30F: %-3L) - %m%n</Property>
+        <Property name="LOG_PATTERN_FILE">[%5p] (%30F: %-3L) - %m%n</Property>
     </Properties>
 
     <Appenders>

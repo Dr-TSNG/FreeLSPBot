@@ -1,4 +1,4 @@
-package util
+package plugin
 
 import com.aurora.gplayapi.data.models.App
 import com.aurora.gplayapi.data.models.AuthData
@@ -17,7 +17,7 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import logger
 import proxiedHttpClient
-import retry
+import util.retry
 import java.io.File
 import java.time.Duration
 
@@ -116,11 +116,8 @@ private object GHttpClient : IHttpClient {
 
 class GooglePlay private constructor(private var authData: AuthData) {
     companion object {
-        var instance: GooglePlay? = null
-
-        fun init() = runCatching {
-            instance = GooglePlay(login())
-            logger.info("Google Play API initialized")
+        fun create() = runCatching {
+            GooglePlay(login())
         }
 
         private fun login(): AuthData {

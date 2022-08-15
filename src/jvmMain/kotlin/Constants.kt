@@ -9,14 +9,21 @@ object Constants {
         /rqb  - （管理员命令）立即刷新题池
     """.trimIndent()
 
-    val newMemberReply = """
-        新成员 %s，请在 %d 分钟内完成以下题目以证明你不是机器人
+    val privateVerifyMessage = """
+        新成员 %s，请在 %s 内完成以下题目以证明你不是机器人
         你有 %d 次机会可以更换题目
     """.trimIndent()
+    const val groupVerifyMessage = "新成员 %s 正在进行入群认证"
 
-    const val changeQuestion = "换一道题"
-    const val passVerification = "新成员 %s 通过验证"
-    const val failVerification = "%s 未通过验证，已被移除群组"
+    const val startVerify = "开始验证"
+    const val manualPass = "人工通过（管理员）"
+    const val manualPassPrivate = "管理员人工通过了你的入群验证"
+    const val manualPassGroup = "管理员 %s 人工通过了 %s 的入群验证"
+    const val passVerifyPrivate = "通过验证"
+    const val passVerifyGroup = "新成员 %s 通过验证"
+    const val failVerifyPrivate = "未通过验证，你将被封禁 %s"
+    const val failVerifyGroup = "%s 未通过验证，已被临时封禁"
+
     const val questionBankStatus = "当前题库中加载了 %d 道题，题池中剩余 %d 道题"
     const val notAdmin = "你不是该 bot 的主人"
     const val refreshQuestionBank = "已刷新题库，加载了 %d 道题"

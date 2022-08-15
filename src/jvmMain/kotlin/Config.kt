@@ -4,10 +4,14 @@ import kotlinx.serialization.Serializable
 data class Config(
     val proxyHost: String,
     val proxyPort: Int,
+    val serverHost: String,
+    val serverPort: Int,
+    val botApiUrl: String,
+    val webApiUrl: String,
     val token: String,
-    val apiUrl: String,
     val admin: Long,
     val groupWhiteList: Set<Long>,
-    val verifyTimeout: Int,
-    val verifyFailedBanTime: Int,
+    val captchaApiUrl: String,
+    val verifyTimeout: String,
+    val verifyFail2Ban: String
 )

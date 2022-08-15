@@ -9,54 +9,55 @@ import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.network.sockets.*
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import logger
+import plugin.GooglePlay
 import proxiedHttpClient
-import util.GooglePlay
 import java.io.File
 import java.net.URLClassLoader
-import java.time.Duration
+import kotlin.time.Duration
 
-object TwiFucker {
+@Serializable
+private class Config(
+    val patcher: String,
+    val module: String,
+    val channel: Long,
+    var twitterVersion: Int
+)
 
-    @Serializable
-    private class Config(
-        val patcher: String,
-        val module: String,
-        val channel: Long,
-        var twitterVersion: Int
-    )
+private const val twitter = "com.twitter.android"
+private const val tmpDir = "data/TwiFucker/tmp"
+private const val configFile = "data/TwiFucker/config.json"
 
-    private const val twitter = "com.twitter.android"
-    private const val tmpDir = "data/TwiFucker/tmp"
-    private const val configFile = "data/TwiFucker/config.json"
-
-    context(BehaviourContext)
-            suspend fun eventLoop() {
-        val googlePlay = GooglePlay.instance!!
+context(BehaviourContext)
+fun installTwiFucker() {
+    launch(Dispatchers.IO) {
+        val googlePlay = GooglePlay.create().getOrElse {
+            logger.error("Google Play API is not available", it)
+            return@launch
+        }
+        logger.info("Google Play API initialized")
         while (true) {
-            withContext(Dispatchers.IO) {
+            suspend fun block() {
                 logger.debug("Check for new Twitter version")
                 val config = Json.decodeFromString<Config>(File(configFile).readText())
                 val app = googlePlay.getAppInfo(twitter).getOrElse {
                     logger.error("Failed to get app info for $twitter", it)
-                    return@withContext
+                    return@block
                 }
-                if (app.versionCode <= config.twitterVersion) return@withContext
+                if (app.versionCode <= config.twitterVersion) return
                 logger.info(String.format("New version of Twitter detected: %s (%d)", app.versionName, app.versionCode))
                 val files = googlePlay.downloadApp(app).getOrElse {
                     logger.error(String.format("Failed to download Twitter version %s (%d)", app.versionName, app.versionCode), it)
-                    return@withContext
+                    return@block
                 }
                 if (files.size > 1) {
                     logger.error("More than one apks")
-                    return@withContext
+                    return
                 }
 
                 logger.debug("Download Twitter apk")
@@ -68,7 +69,7 @@ object TwiFucker {
                 if (response.status != HttpStatusCode.OK) {
                     val error = String(response.readBytes())
                     logger.error("Failed to download file ${files[0].name}: $error")
-                    return@withContext
+                    return
                 }
                 File("$tmpDir/${files[0].name}").writeBytes(response.body())
                 logger.debug("Downloaded file ${files[0].name}")
@@ -90,7 +91,7 @@ object TwiFucker {
                     ?.singleOrNull()
                 if (patched == null) {
                     logger.error("Failed to patch Twitter")
-                    return@withContext
+                    return
                 }
 
                 logger.debug("Post to channel")
@@ -104,14 +105,15 @@ object TwiFucker {
                     if (e is SocketTimeoutException && e.cause?.cause?.message == "Socket closed") return@onFailure
                     // TODO: It is strange, but it does work.
                     logger.error("Failed to post to channel", e)
-                    return@withContext
+                    return@block
                 }
 
                 logger.info("Posted new patched Twitter apk")
                 config.twitterVersion = app.versionCode
                 File(configFile).writeText(Json.encodeToString(config))
             }
-            delay(Duration.ofHours(1).toMillis())
+            block()
+            delay(Duration.parse("1h"))
         }
     }
 }
