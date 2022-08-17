@@ -22,6 +22,10 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import mu.KotlinLogging
+import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.Slf4jSqlDebugLogger
+import org.jetbrains.exposed.sql.addLogger
+import org.jetbrains.exposed.sql.transactions.transaction
 import java.io.File
 import java.net.SocketException
 
@@ -37,11 +41,18 @@ val proxiedHttpClient = HttpClient(OkHttp) {
 val logger = KotlinLogging.logger {}
 lateinit var botSelf: ExtendedBot
 
+private fun initDatabase() {
+    Database.connect(config.database, user = config.dbUsername, password = config.dbPassword)
+    transaction {
+        addLogger(Slf4jSqlDebugLogger)
+    }
+}
+
 suspend fun main() {
+    initDatabase()
     val telegramBotAPIUrlsKeeper = TelegramAPIUrlsKeeper(config.token, config.botApiUrl)
     val bot = telegramBot(telegramBotAPIUrlsKeeper)
-
-    logger.info("Bot start. WhiteList: ${config.groupWhiteList}")
+    logger.info("Bot start.")
 
     embeddedServer(Netty, port = config.serverPort, host = config.serverHost) {
         routing {

@@ -6,6 +6,7 @@ import English
 import WebAppDataWrapper
 import botSelf
 import config
+import database.JoinRequestDao
 import dev.inmo.tgbotapi.bot.TelegramBot
 import dev.inmo.tgbotapi.extensions.api.chat.get.getChatAdministrators
 import dev.inmo.tgbotapi.extensions.api.chat.invite_links.approveChatJoinRequest
@@ -36,10 +37,12 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import logger
+import org.jetbrains.exposed.sql.transactions.transaction
 import plugin.Captcha
 import util.BotUtils.detailName
 import util.BotUtils.fullName
 import util.BotUtils.fullNameExt
+import util.BotUtils.getCommonChats
 import util.BotUtils.isChinese
 import util.BotUtils.kickUser
 import util.StringUtils
@@ -49,6 +52,7 @@ import kotlin.collections.set
 import kotlin.time.Duration
 
 private class Verification(
+    val dao: JoinRequestDao,
     val token: String,
     val user: User,
     val chat: PublicChat,
@@ -59,7 +63,7 @@ private class Verification(
     val mutex = Mutex()
     val scope = CoroutineScope(Dispatchers.Default)
     var sessionId: String? = null
-    var chances = config.changeCaptchaChances
+    var chances = dao.retryChances
 
     suspend fun doClean(bot: TelegramBot) {
         bot.deleteMessage(privateVerifyMessage)
@@ -83,7 +87,7 @@ private object ManualPassCallback {
 
 private val userPending = ConcurrentHashMap<String, Verification>()
 
-private suspend fun TelegramBot.createVerification(chat: PublicChat, user: User) {
+private suspend fun TelegramBot.createVerification(dao: JoinRequestDao, chat: PublicChat, user: User) {
     logger.info("Create new verification for ${user.detailName} in chat ${chat.detailName}")
     var token: String
     do {
@@ -92,7 +96,7 @@ private suspend fun TelegramBot.createVerification(chat: PublicChat, user: User)
     val language = if (user.isChinese) Chinese else English
     val privateVerifyMessage = sendTextMessage(
         chat = user,
-        text = String.format(language.privateVerifyMessage, user.fullName, config.verifyTimeout, config.changeCaptchaChances),
+        text = String.format(language.privateVerifyMessage, user.fullName, dao.timeout, dao.retryChances),
         protectContent = true,
         replyMarkup = inlineKeyboard {
             row { webAppButton(language.startVerify, config.webApiUrl + "/captcha/?token=$token") }
@@ -110,17 +114,17 @@ private suspend fun TelegramBot.createVerification(chat: PublicChat, user: User)
     )
 
     userPending[token] = Verification(
-        token, user, chat, language,
+        dao, token, user, chat, language,
         privateVerifyMessage, groupVerifyMessage
     ).also {
         it.scope.launch {
-            delay(Duration.parse(config.verifyTimeout))
+            delay(Duration.parse(dao.timeout))
             it.mutex.withLock {
                 if (!userPending.containsKey(token)) return@withLock
                 logger.info("Verification timeout for ${user.detailName} in chat ${chat.detailName}")
                 declineChatJoinRequest(chat, user)
-                kickUser(chat, user, config.verifyFail2Ban)
-                sendTextMessage(user, String.format(language.failVerifyPrivate, config.verifyFail2Ban))
+                kickUser(chat, user, dao.fail2ban)
+                sendTextMessage(user, String.format(language.failVerifyPrivate, dao.fail2ban))
                 sendTextMessage(chat, String.format(Constants.failVerifyGroup, user.fullName))
                 it.doClean(this@createVerification)
             }
@@ -175,8 +179,8 @@ fun Routing.configureJoinRequestRouting(
                         else -> {
                             logger.info("${user.detailName} failed verification to chat ${chat.detailName}")
                             bot.declineChatJoinRequest(chat, user)
-                            bot.kickUser(chat, user, config.verifyFail2Ban)
-                            bot.sendTextMessage(user, String.format(language.failVerifyPrivate, config.verifyFail2Ban))
+                            bot.kickUser(chat, user, dao.fail2ban)
+                            bot.sendTextMessage(user, String.format(language.failVerifyPrivate, dao.fail2ban))
                             bot.sendTextMessage(chat, String.format(Constants.failVerifyGroup, user.fullName))
                             doClean(bot)
                         }
@@ -190,13 +194,31 @@ fun Routing.configureJoinRequestRouting(
 context(BehaviourContext)
 suspend fun installJoinRequestVerification() {
     onChatJoinRequest(
-        initialFilter = { config.groupWhiteList.contains(it.chat.id.chatId) }
+        initialFilter = { req ->
+            getChatAdministrators(req.chat).any {
+                it.user.id == botSelf.id && it.canInviteUsers && it.canRestrictMembers
+            } && userPending.none { it.value.user.id == req.user.id }
+        }
     ) { req ->
-        if (getChatAdministrators(req.chat).any { it.user.id == botSelf.id }) {
-            if (userPending.none { it.value.user.id == req.from.id }) {
-                createVerification(req.chat, req.from)
+        val dao = transaction {
+            JoinRequestDao.findById(req.chat.id.chatId)
+        } ?: return@onChatJoinRequest
+
+        if (dao.commonChatFilter != null) {
+            val commonChats = getCommonChats(req.chat.id.chatId, req.user.id.chatId)
+            if (commonChats == null) {
+                declineChatJoinRequest(req)
+                val language = if (req.user.isChinese) Chinese else English
+                sendTextMessage(req.user, language.errorVerifyPrivate)
+                return@onChatJoinRequest
+            } else if (commonChats < dao.commonChatFilter!!) {
+                declineChatJoinRequest(req)
+                sendTextMessage(req.chat, String.format(Constants.filteredSuspiciousUser, req.user.detailName))
+                return@onChatJoinRequest
             }
         }
+
+        createVerification(dao, req.chat, req.user)
     }
 
     onDataCallbackQuery(
@@ -215,7 +237,7 @@ suspend fun installJoinRequestVerification() {
                     editMessageText(
                         chat = it.user,
                         messageId = it.privateVerifyMessage.messageId,
-                        text = String.format(it.language.privateVerifyMessage, it.user.fullName, config.verifyTimeout, it.chances),
+                        text = String.format(it.language.privateVerifyMessage, it.user.fullName, it.dao.timeout, it.chances),
                         replyMarkup = inlineKeyboard {
                             row { webAppButton(it.language.startVerify, config.webApiUrl + "/captcha/?token=" + it.token) }
                             if (it.chances > 0) {

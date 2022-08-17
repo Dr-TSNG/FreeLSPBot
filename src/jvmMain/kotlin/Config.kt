@@ -6,13 +6,12 @@ data class Config(
     val proxyPort: Int,
     val serverHost: String,
     val serverPort: Int,
+    val database: String,
+    val dbUsername: String,
+    val dbPassword: String,
     val botApiUrl: String,
     val webApiUrl: String,
     val token: String,
     val admin: Long,
-    val groupWhiteList: Set<Long>,
-    val captchaApiUrl: String,
-    val changeCaptchaChances: Int,
-    val verifyTimeout: String,
-    val verifyFail2Ban: String
+    val captchaApiUrl: String
 )

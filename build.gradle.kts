@@ -32,6 +32,7 @@ kotlin {
     @Suppress("UNUSED_VARIABLE")
     sourceSets {
         val telegramBotApi = "3.1.1"
+        val exposedVersion = "0.39.1"
         val ktorVersion = "2.0.3"
 
         val commonMain by getting {
@@ -55,6 +56,10 @@ kotlin {
                 implementation("io.github.microutils:kotlin-logging-jvm:2.1.23")
                 implementation("io.ktor:ktor-client-okhttp-jvm:$ktorVersion")
                 implementation("io.ktor:ktor-server-netty-jvm:$ktorVersion")
+                implementation("org.jetbrains.exposed:exposed-core:$exposedVersion")
+                implementation("org.jetbrains.exposed:exposed-dao:$exposedVersion")
+                implementation("org.jetbrains.exposed:exposed-jdbc:$exposedVersion")
+                runtimeOnly("mysql:mysql-connector-java:8.0.30")
                 runtimeOnly("org.apache.logging.log4j:log4j-slf4j-impl:2.18.0")
                 runtimeOnly("org.apache.logging.log4j:log4j-core:2.18.0")
                 runtimeOnly("org.apache.logging.log4j:log4j-api:2.18.0")
