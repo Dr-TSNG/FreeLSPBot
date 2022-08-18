@@ -125,7 +125,11 @@ private suspend fun TelegramBot.createVerification(dao: JoinRequestDao, chat: Pu
                 declineChatJoinRequest(chat, user)
                 kickUser(chat, user, dao.fail2ban)
                 sendTextMessage(user, String.format(language.failVerifyPrivate, dao.fail2ban))
-                sendTextMessage(chat, String.format(Constants.failVerifyGroup, user.fullName))
+                val failMessage = sendTextMessage(chat, String.format(Constants.failVerifyGroup, user.fullName))
+                CoroutineScope(Dispatchers.Default).launch {
+                    delay(Duration.parse("1m"))
+                    deleteMessage(failMessage)
+                }
                 it.doClean(this@createVerification)
             }
         }
@@ -181,7 +185,11 @@ fun Routing.configureJoinRequestRouting(
                             bot.declineChatJoinRequest(chat, user)
                             bot.kickUser(chat, user, dao.fail2ban)
                             bot.sendTextMessage(user, String.format(language.failVerifyPrivate, dao.fail2ban))
-                            bot.sendTextMessage(chat, String.format(Constants.failVerifyGroup, user.fullName))
+                            val failMessage = bot.sendTextMessage(chat, String.format(Constants.failVerifyGroup, user.fullName))
+                            CoroutineScope(Dispatchers.Default).launch {
+                                delay(Duration.parse("1m"))
+                                bot.deleteMessage(failMessage)
+                            }
                             doClean(bot)
                         }
                     }
