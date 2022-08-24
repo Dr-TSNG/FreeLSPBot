@@ -13,5 +13,6 @@ data class Config(
     val webApiUrl: String,
     val token: String,
     val admin: Long,
-    val captchaApiUrl: String
+    val captchaApiUrl: String,
+    val captchaApiKey: String
 )

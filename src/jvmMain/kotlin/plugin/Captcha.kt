@@ -7,8 +7,12 @@ import io.ktor.client.statement.*
 
 object Captcha {
 
-    suspend fun createSession(): String {
-        val response = commonHttpClient.get(config.captchaApiUrl + "/service/create")
+    suspend fun createSession(easyMode: Boolean): String {
+        val response = commonHttpClient
+            .post(config.captchaApiUrl + "/service/create") {
+                header("apiKey", config.captchaApiKey)
+                header("isTagged", easyMode)
+            }
         return response.bodyAsText()
     }
 

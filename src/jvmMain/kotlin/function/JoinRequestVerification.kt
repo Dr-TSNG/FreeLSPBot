@@ -57,6 +57,7 @@ private class Verification(
     val user: User,
     val chat: PublicChat,
     val language: Constants,
+    val easyMode: Boolean,
     val privateVerifyMessage: Message,
     val groupVerifyMessage: Message
 ) {
@@ -87,7 +88,7 @@ private object ManualPassCallback {
 
 private val userPending = ConcurrentHashMap<String, Verification>()
 
-private suspend fun TelegramBot.createVerification(dao: JoinRequestDao, chat: PublicChat, user: User) {
+private suspend fun TelegramBot.createVerification(dao: JoinRequestDao, chat: PublicChat, user: User, easyMode: Boolean) {
     logger.info("Create new verification for ${user.detailName} in chat ${chat.detailName}")
     var token: String
     do {
@@ -115,7 +116,7 @@ private suspend fun TelegramBot.createVerification(dao: JoinRequestDao, chat: Pu
 
     userPending[token] = Verification(
         dao, token, user, chat, language,
-        privateVerifyMessage, groupVerifyMessage
+        easyMode, privateVerifyMessage, groupVerifyMessage
     ).also {
         it.scope.launch {
             delay(Duration.parse(dao.timeout))
@@ -152,7 +153,7 @@ fun Routing.configureJoinRequestRouting(
 
         if (isSafe && verification != null) {
             if (verification.sessionId == null) {
-                verification.sessionId = Captcha.createSession()
+                verification.sessionId = Captcha.createSession(verification.easyMode)
             }
             call.respond(HttpStatusCode.OK, verification.sessionId!!)
         } else {
@@ -212,21 +213,31 @@ suspend fun installJoinRequestVerification() {
             JoinRequestDao.findById(req.chat.id.chatId)
         } ?: return@onChatJoinRequest
 
-        if (dao.commonChatFilter != null) {
-            val commonChats = getCommonChats(req.chat.id.chatId, req.user.id.chatId)
+        var commonChats: Int? = null
+        var easyMode = false
+        if (dao.commonChatLeast != null) {
+            commonChats = getCommonChats(req.chat.id.chatId, req.user.id.chatId)
             if (commonChats == null) {
                 declineChatJoinRequest(req)
                 val language = if (req.user.isChinese) Chinese else English
                 sendTextMessage(req.user, language.errorVerifyPrivate)
                 return@onChatJoinRequest
-            } else if (commonChats < dao.commonChatFilter!!) {
+            } else if (commonChats < dao.commonChatLeast!!) {
                 declineChatJoinRequest(req)
-                sendTextMessage(req.chat, String.format(Constants.filteredSuspiciousUser, req.user.detailName))
+                val msg = sendTextMessage(req.chat, String.format(Constants.filteredSuspiciousUser, req.user.detailName))
+                launch {
+                    delay(Duration.parse("1m"))
+                    deleteMessage(msg)
+                }
                 return@onChatJoinRequest
             }
         }
+        if (dao.commonChatEasy != null) {
+            if (commonChats == null) commonChats = getCommonChats(req.chat.id.chatId, req.user.id.chatId)
+            if (commonChats != null && commonChats >= dao.commonChatEasy!!) easyMode = true
+        }
 
-        createVerification(dao, req.chat, req.user)
+        createVerification(dao, req.chat, req.user, easyMode)
     }
 
     onDataCallbackQuery(
