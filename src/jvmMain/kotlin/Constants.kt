@@ -17,7 +17,9 @@ interface Constants {
 
         const val groupVerifyMessage = "新成员 %s 正在进行入群验证"
         const val manualPass = "人工通过（管理员）"
+        const val manualDecline = "人工拒绝（管理员）"
         const val manualPassGroup = "管理员 %s 人工通过了 %s 的入群验证"
+        const val manualDeclineGroup = "管理员 %s 人工拒绝了 %s 的入群验证"
         const val passVerifyGroup = "新成员 %s 通过验证"
         const val failVerifyGroup = "%s 未通过验证，已被临时封禁"
         const val filteredSuspiciousUser = "可疑用户 %s 尝试加入群聊，已忽略"

@@ -75,6 +75,12 @@ private object ManualPassCallback {
     fun decode(data: String): Verification? = userPending[data.substringAfter(':')]
 }
 
+private object ManualDeclineCallback {
+    fun encode(token: String): String = "manualDecline:$token"
+    fun isValid(data: String): Boolean = data.startsWith("manualDecline:")
+    fun decode(data: String): Verification? = userPending[data.substringAfter(':')]
+}
+
 private val userPending = ConcurrentHashMap<String, Verification>()
 
 private suspend fun TelegramBot.createVerification(dao: JoinRequestDao, chat: PublicChat, user: User, easyMode: Boolean) {
@@ -98,6 +104,9 @@ private suspend fun TelegramBot.createVerification(dao: JoinRequestDao, chat: Pu
         replyMarkup = inlineKeyboard {
             row {
                 +CallbackDataInlineKeyboardButton(Constants.manualPass, ManualPassCallback.encode(token))
+            }
+            row {
+                +CallbackDataInlineKeyboardButton(Constants.manualDecline, ManualDeclineCallback.encode(token))
             }
         }
     )
@@ -256,6 +265,22 @@ suspend fun installJoinRequestVerification() {
             runCatching { approveChatJoinRequest(verification.chat, verification.user) }
             sendTextMessage(verification.user, verification.language.manualPassPrivate)
             sendTextMessage(verification.chat, String.format(Constants.manualPassGroup, query.from.fullName, verification.user.fullName))
+            verification.doClean(this)
+        }
+    }
+
+    onDataCallbackQuery(
+        initialFilter = { ManualDeclineCallback.isValid(it.data) }
+    ) { query ->
+        val verification = ManualDeclineCallback.decode(query.data) ?: return@onDataCallbackQuery
+        val admins = getChatAdministrators(verification.chat)
+        val admin = admins.find { it.user.id == query.from.id && it.canRestrictMembers } ?: return@onDataCallbackQuery
+        verification.mutex.withLock {
+            if (!userPending.containsKey(verification.token)) return@withLock
+            logger.info("Admin ${admin.user.detailName} manually declined ${verification.user.detailName} in chat ${verification.chat.detailName}")
+            runCatching { declineChatJoinRequest(verification.chat, verification.user) }
+            bot.kickUser(verification.chat, verification.user, verification.dao.fail2ban)
+            sendTextMessage(verification.chat, String.format(Constants.manualDeclineGroup, query.from.fullName, verification.user.fullName))
             verification.doClean(this)
         }
     }
