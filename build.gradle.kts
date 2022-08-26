@@ -37,13 +37,15 @@ kotlin {
 
         val commonMain by getting {
             dependencies {
-                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.0-RC")
+
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.0")
             }
         }
 
         val jsMain by getting {
             dependencies {
                 implementation("dev.inmo:tgbotapi.webapps:$telegramBotApi")
+                implementation("io.ktor:ktor-websockets:$ktorVersion")
                 implementation("org.jetbrains.kotlinx:kotlinx-html-js:0.7.2")
             }
         }
@@ -56,6 +58,7 @@ kotlin {
                 implementation("io.github.microutils:kotlin-logging-jvm:2.1.23")
                 implementation("io.ktor:ktor-client-okhttp-jvm:$ktorVersion")
                 implementation("io.ktor:ktor-server-netty-jvm:$ktorVersion")
+                implementation("io.ktor:ktor-websockets:$ktorVersion")
                 implementation("org.jetbrains.exposed:exposed-core:$exposedVersion")
                 implementation("org.jetbrains.exposed:exposed-dao:$exposedVersion")
                 implementation("org.jetbrains.exposed:exposed-jdbc:$exposedVersion")

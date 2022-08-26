@@ -15,9 +15,11 @@ import io.ktor.client.engine.*
 import io.ktor.client.engine.okhttp.*
 import io.ktor.client.plugins.*
 import io.ktor.network.sockets.*
+import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import io.ktor.server.routing.*
+import io.ktor.server.websocket.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
@@ -28,6 +30,7 @@ import org.jetbrains.exposed.sql.addLogger
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.io.File
 import java.net.SocketException
+import java.time.Duration
 
 val config = Json.decodeFromString<Config>(File("data/config.json").readText())
 
@@ -55,6 +58,9 @@ suspend fun main() {
     logger.info("Bot start.")
 
     embeddedServer(Netty, port = config.serverPort, host = config.serverHost) {
+        install(WebSockets) {
+            pingPeriod = Duration.ofMinutes(1)
+        }
         routing {
             configureJoinRequestRouting(telegramBotAPIUrlsKeeper, bot)
         }

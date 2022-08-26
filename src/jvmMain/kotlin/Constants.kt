@@ -31,8 +31,6 @@ interface Constants {
 
     val privateVerifyMessage: String
     val startVerify: String
-    val changeQuestion: String
-    val cannotChangeQuestion: String
     val manualPassPrivate: String
     val passVerifyPrivate: String
     val failVerifyPrivate: String
@@ -40,14 +38,8 @@ interface Constants {
 }
 
 object Chinese : Constants {
-    override val privateVerifyMessage = """
-        新成员 %s，请在 %s 内完成验证码以证明你不是机器人
-        你有 %d 次机会可以更换验证码
-    """.trimIndent()
-
+    override val privateVerifyMessage = "新成员 %s，请在 %s 内完成验证码以证明你不是机器人"
     override val startVerify = "开始验证"
-    override val changeQuestion = "更换题目"
-    override val cannotChangeQuestion = "您尚未加载验证码或已进行验证，无法更换题目"
     override val manualPassPrivate = "管理员人工通过了你的入群验证"
     override val passVerifyPrivate = "通过验证"
     override val failVerifyPrivate = "未通过验证，你将被封禁 %s"
@@ -55,14 +47,8 @@ object Chinese : Constants {
 }
 
 object English : Constants {
-    override val privateVerifyMessage = """
-        New member %s, please complete the captcha in %s to prove that you are not a robot
-        You have %d chances to change the captcha
-    """.trimIndent()
-
+    override val privateVerifyMessage = "New member %s, please complete the captcha in %s to prove that you are not a robot"
     override val startVerify = "Start verify"
-    override val changeQuestion = "Change captcha"
-    override val cannotChangeQuestion = "You haven't loaded the captcha or have challenged it. So you can't change now"
     override val manualPassPrivate = "The administrator manually passed your join request"
     override val passVerifyPrivate = "Verification passed"
     override val failVerifyPrivate = "Failed to pass the verification. You will be banned in %s"

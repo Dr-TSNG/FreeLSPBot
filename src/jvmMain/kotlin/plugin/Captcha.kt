@@ -4,6 +4,7 @@ import commonHttpClient
 import config
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
+import io.ktor.http.*
 
 object Captcha {
 
@@ -16,10 +17,11 @@ object Captcha {
         return response.bodyAsText()
     }
 
-    suspend fun getVerifyResult(sessionId: String): String {
+    suspend fun getVerifyResult(sessionId: String): String? {
         val response = commonHttpClient.get(config.captchaApiUrl + "/service/result") {
             header("sessionId", sessionId)
         }
-        return response.bodyAsText()
+        return if (response.status == HttpStatusCode.Forbidden) null
+        else response.bodyAsText()
     }
 }

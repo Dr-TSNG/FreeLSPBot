@@ -1,71 +1,66 @@
-import dev.inmo.micro_utils.coroutines.launchSafelyWithoutExceptions
-import dev.inmo.tgbotapi.webapps.haptic.HapticFeedbackType
-import dev.inmo.tgbotapi.webapps.onClick
 import dev.inmo.tgbotapi.webapps.webApp
 import io.ktor.client.*
-import io.ktor.client.request.*
-import io.ktor.client.statement.*
-import io.ktor.http.*
+import io.ktor.client.plugins.websocket.*
+import io.ktor.websocket.*
 import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.html.dom.append
 import kotlinx.html.id
 import kotlinx.html.iframe
-import kotlinx.html.p
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
+private suspend fun receiveTextOrClose(webSocket: DefaultWebSocketSession): String? {
+    return when (val frame = webSocket.incoming.receive()) {
+        is Frame.Text -> frame.readText()
+        is Frame.Close -> {
+            val reason = frame.readReason()
+            if (reason?.knownReason == CloseReason.Codes.NORMAL) {
+                webApp.close()
+                null
+            } else {
+                throw IllegalStateException("WebSocket closed with reason: $reason")
+            }
+        }
+        else -> throw IllegalStateException("Unexpected frame $frame")
+    }
+}
+
 fun main() {
     console.log("Web app started")
-    val client = HttpClient()
-    val lang = window.navigator.language
-    val isChinese = lang.startsWith("zh-")
+    val client = HttpClient {
+        install(WebSockets)
+    }
     val baseUrl = window.location.pathname.substringBeforeLast('/')
     val token = window.location.search.substringAfter("?token=")
 
     window.onload = {
         val scope = CoroutineScope(Dispatchers.Default)
-        runCatching {
-            scope.launchSafelyWithoutExceptions {
-                val response = client.post("$baseUrl/load") {
+        scope.launch {
+            runCatching {
+                client.wss("$baseUrl/ws") {
+                    console.log("Established WebSocket connection")
                     val wrapper = WebAppDataWrapper(webApp.initData, webApp.initDataUnsafe.hash, token)
-                    setBody(Json.encodeToString(wrapper))
-                }
-                if (response.status != HttpStatusCode.OK) {
-                    document.body!!.append {
-                        p { +"Error: ${response.status}" }
-                    }
-                    return@launchSafelyWithoutExceptions
-                }
-                val sessionId = response.bodyAsText()
-                document.getElementById("captcha_container")!!.append {
-                    iframe {
-                        id = "captcha"
-                        src = "https://api.nullptr.icu/captcha/?sessionId=$sessionId"
-                    }
-                }
-                webApp.mainButton.show()
-            }
-
-            with(webApp) {
-                mainButton.let {
-                    it.setText(if (isChinese) "完成" else "Finish")
-                    it.onClick {
-                        scope.launchSafelyWithoutExceptions {
-                            client.post("$baseUrl/complete") {
-                                val wrapper = WebAppDataWrapper(webApp.initData, webApp.initDataUnsafe.hash, token)
-                                setBody(Json.encodeToString(wrapper))
-                            }
-                            hapticFeedback.notificationOccurred(HapticFeedbackType.Success)
-                            close()
+                    outgoing.send(Frame.Text(Json.encodeToString(wrapper)))
+                    val iframeUrl = receiveTextOrClose(this) ?: return@wss
+                    document.getElementById("captcha_container")!!.append {
+                        iframe {
+                            id = "captcha"
+                            src = iframeUrl
                         }
                     }
+                    val closeReason = closeReason.await()
+                    if (closeReason?.knownReason != CloseReason.Codes.TRY_AGAIN_LATER) {
+                        webApp.close()
+                    }
                 }
+            }.onFailure {
+                console.error(it.stackTraceToString())
+                window.alert(it.stackTraceToString())
             }
-        }.onFailure {
-            window.alert(it.stackTraceToString())
         }
     }
 }

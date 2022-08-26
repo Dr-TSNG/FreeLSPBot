@@ -12,7 +12,6 @@ import dev.inmo.tgbotapi.extensions.api.chat.get.getChatAdministrators
 import dev.inmo.tgbotapi.extensions.api.chat.invite_links.approveChatJoinRequest
 import dev.inmo.tgbotapi.extensions.api.chat.invite_links.declineChatJoinRequest
 import dev.inmo.tgbotapi.extensions.api.deleteMessage
-import dev.inmo.tgbotapi.extensions.api.edit.text.editMessageText
 import dev.inmo.tgbotapi.extensions.api.send.sendTextMessage
 import dev.inmo.tgbotapi.extensions.behaviour_builder.BehaviourContext
 import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onChatJoinRequest
@@ -25,12 +24,10 @@ import dev.inmo.tgbotapi.types.chat.PublicChat
 import dev.inmo.tgbotapi.types.chat.User
 import dev.inmo.tgbotapi.types.message.abstracts.Message
 import dev.inmo.tgbotapi.utils.TelegramAPIUrlsKeeper
-import io.ktor.http.*
-import io.ktor.server.application.*
 import io.ktor.server.http.content.*
-import io.ktor.server.request.*
-import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import io.ktor.server.websocket.*
+import io.ktor.websocket.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -63,8 +60,6 @@ private class Verification(
 ) {
     val mutex = Mutex()
     val scope = CoroutineScope(Dispatchers.Default)
-    var sessionId: String? = null
-    var chances = dao.retryChances
 
     suspend fun doClean(bot: TelegramBot) {
         bot.deleteMessage(privateVerifyMessage)
@@ -72,12 +67,6 @@ private class Verification(
         userPending.remove(token)
         scope.cancel()
     }
-}
-
-private object ChangeQuestionCallback {
-    fun encode(token: String): String = "changeQuestion:$token"
-    fun isValid(data: String): Boolean = data.startsWith("changeQuestion:")
-    fun decode(data: String): Verification? = userPending[data.substringAfter(':')]
 }
 
 private object ManualPassCallback {
@@ -97,11 +86,10 @@ private suspend fun TelegramBot.createVerification(dao: JoinRequestDao, chat: Pu
     val language = if (user.isChinese) Chinese else English
     val privateVerifyMessage = sendTextMessage(
         chat = user,
-        text = String.format(language.privateVerifyMessage, user.fullName, dao.timeout, dao.retryChances),
+        text = String.format(language.privateVerifyMessage, user.fullName, dao.timeout),
         protectContent = true,
         replyMarkup = inlineKeyboard {
             row { webAppButton(language.startVerify, config.webApiUrl + "/captcha/?token=$token") }
-            row { +CallbackDataInlineKeyboardButton(language.changeQuestion, ChangeQuestionCallback.encode(token)) }
         }
     )
     val groupVerifyMessage = sendTextMessage(
@@ -145,44 +133,60 @@ fun Routing.configureJoinRequestRouting(
         files(File("data/captcha"))
         default("data/captcha/index.html")
     }
-    post("load") {
-        val requestBody = call.receiveText()
-        val webAppCheckData = Json.decodeFromString<WebAppDataWrapper>(requestBody)
-        val isSafe = telegramBotAPIUrlsKeeper.checkWebAppData(webAppCheckData.data, webAppCheckData.hash)
-        val verification = userPending[webAppCheckData.token]
-
-        if (isSafe && verification != null) {
-            if (verification.sessionId == null) {
-                verification.sessionId = Captcha.createSession(verification.easyMode)
-            }
-            call.respond(HttpStatusCode.OK, verification.sessionId!!)
-        } else {
-            call.respond(HttpStatusCode.Forbidden)
+    webSocket("ws") {
+        logger.info("New WebSocket connection")
+        val frame = incoming.receive()
+        if (frame !is Frame.Text) {
+            close(CloseReason(CloseReason.Codes.CANNOT_ACCEPT, "Only text frames are accepted"))
+            return@webSocket
         }
-    }
-    post("complete") {
-        val requestBody = call.receiveText()
-        val webAppCheckData = Json.decodeFromString<WebAppDataWrapper>(requestBody)
+        val webAppCheckData = Json.decodeFromString<WebAppDataWrapper>(frame.readText())
         val isSafe = telegramBotAPIUrlsKeeper.checkWebAppData(webAppCheckData.data, webAppCheckData.hash)
         val verification = userPending[webAppCheckData.token]
+        if (!isSafe || verification == null) {
+            logger.debug("Invalid session: isSafe=$isSafe")
+            close(CloseReason(CloseReason.Codes.NORMAL, "Verification session invalid"))
+            return@webSocket
+        }
 
-        if (isSafe && verification != null) {
+        val sessionId: String
+        with(verification) {
+            mutex.withLock {
+                if (!userPending.containsKey(token)) {
+                    close(CloseReason(CloseReason.Codes.NORMAL, "Verification session expired"))
+                    return@webSocket
+                }
+                sessionId = Captcha.createSession(verification.easyMode)
+                outgoing.send(Frame.Text(config.captchaApiUrl + "/?sessionId=" + sessionId))
+            }
+        }
+
+        while (true) {
+            delay(1000)
             with(verification) {
-                val result = sessionId?.let { Captcha.getVerifyResult(it) }
-                logger.info("Result for verification ${webAppCheckData.token}: $result")
                 mutex.withLock {
-                    if (!userPending.containsKey(token)) return@withLock
-                    when (result) {
+                    if (!userPending.containsKey(token)) {
+                        close(CloseReason(CloseReason.Codes.NORMAL, "Verification session expired"))
+                        return@webSocket
+                    }
+                    when (Captcha.getVerifyResult(sessionId)) {
+                        null -> {
+                            close(CloseReason(CloseReason.Codes.TRY_AGAIN_LATER, "Captcha session expired"))
+                            return@webSocket
+                        }
+
                         "Success" -> {
                             logger.info("${user.detailName} passed verification to chat ${chat.detailName}")
+                            close(CloseReason(CloseReason.Codes.NORMAL, "Verification successful"))
                             bot.approveChatJoinRequest(chat, user)
                             bot.sendTextMessage(user, language.passVerifyPrivate)
                             bot.sendTextMessage(chat, String.format(Constants.passVerifyGroup, user.fullName))
                             doClean(bot)
                         }
 
-                        else -> {
+                        "Failure" -> {
                             logger.info("${user.detailName} failed verification to chat ${chat.detailName}")
+                            close(CloseReason(CloseReason.Codes.NORMAL, "Verification failed"))
                             bot.declineChatJoinRequest(chat, user)
                             bot.kickUser(chat, user, dao.fail2ban)
                             bot.sendTextMessage(user, String.format(language.failVerifyPrivate, dao.fail2ban))
@@ -238,35 +242,6 @@ suspend fun installJoinRequestVerification() {
         }
 
         createVerification(dao, req.chat, req.user, easyMode)
-    }
-
-    onDataCallbackQuery(
-        initialFilter = { ChangeQuestionCallback.isValid(it.data) }
-    ) { query ->
-        ChangeQuestionCallback.decode(query.data)?.let {
-            it.mutex.withLock {
-                if (!userPending.containsKey(it.token)) return@withLock
-                if (it.chances > 0) {
-                    if (it.sessionId == null || Captcha.getVerifyResult(it.sessionId!!) != "Pending") {
-                        sendTextMessage(it.user, it.language.cannotChangeQuestion)
-                        return@withLock
-                    }
-                    it.chances--
-                    it.sessionId = null
-                    editMessageText(
-                        chat = it.user,
-                        messageId = it.privateVerifyMessage.messageId,
-                        text = String.format(it.language.privateVerifyMessage, it.user.fullName, it.dao.timeout, it.chances),
-                        replyMarkup = inlineKeyboard {
-                            row { webAppButton(it.language.startVerify, config.webApiUrl + "/captcha/?token=" + it.token) }
-                            if (it.chances > 0) {
-                                row { +CallbackDataInlineKeyboardButton(it.language.changeQuestion, ChangeQuestionCallback.encode(it.token)) }
-                            }
-                        }
-                    )
-                }
-            }
-        }
     }
 
     onDataCallbackQuery(
