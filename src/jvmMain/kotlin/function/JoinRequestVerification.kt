@@ -111,7 +111,7 @@ private suspend fun TelegramBot.createVerification(dao: JoinRequestDao, chat: Pu
             it.mutex.withLock {
                 if (!userPending.containsKey(token)) return@withLock
                 logger.info("Verification timeout for ${user.detailName} in chat ${chat.detailName}")
-                declineChatJoinRequest(chat, user)
+                runCatching { declineChatJoinRequest(chat, user) }
                 kickUser(chat, user, dao.fail2ban)
                 sendTextMessage(user, String.format(language.failVerifyPrivate, dao.fail2ban))
                 val failMessage = sendTextMessage(chat, String.format(Constants.failVerifyGroup, user.fullName))
@@ -178,7 +178,7 @@ fun Routing.configureJoinRequestRouting(
                         "Success" -> {
                             logger.info("${user.detailName} passed verification to chat ${chat.detailName}")
                             close(CloseReason(CloseReason.Codes.NORMAL, "Verification successful"))
-                            bot.approveChatJoinRequest(chat, user)
+                            runCatching { bot.approveChatJoinRequest(chat, user) }
                             bot.sendTextMessage(user, language.passVerifyPrivate)
                             bot.sendTextMessage(chat, String.format(Constants.passVerifyGroup, user.fullName))
                             doClean(bot)
@@ -187,7 +187,7 @@ fun Routing.configureJoinRequestRouting(
                         "Failure" -> {
                             logger.info("${user.detailName} failed verification to chat ${chat.detailName}")
                             close(CloseReason(CloseReason.Codes.NORMAL, "Verification failed"))
-                            bot.declineChatJoinRequest(chat, user)
+                            runCatching { bot.declineChatJoinRequest(chat, user) }
                             bot.kickUser(chat, user, dao.fail2ban)
                             bot.sendTextMessage(user, String.format(language.failVerifyPrivate, dao.fail2ban))
                             val failMessage = bot.sendTextMessage(chat, String.format(Constants.failVerifyGroup, user.fullName))
@@ -222,12 +222,12 @@ suspend fun installJoinRequestVerification() {
         if (dao.commonChatLeast != null) {
             commonChats = getCommonChats(req.chat.id.chatId, req.user.id.chatId)
             if (commonChats == null) {
-                declineChatJoinRequest(req)
+                runCatching { declineChatJoinRequest(req) }
                 val language = if (req.user.isChinese) Chinese else English
                 sendTextMessage(req.user, language.errorVerifyPrivate)
                 return@onChatJoinRequest
             } else if (commonChats < dao.commonChatLeast!!) {
-                declineChatJoinRequest(req)
+                runCatching { declineChatJoinRequest(req) }
                 val msg = sendTextMessage(req.chat, String.format(Constants.filteredSuspiciousUser, req.user.detailName))
                 launch {
                     delay(Duration.parse("1m"))
@@ -253,7 +253,7 @@ suspend fun installJoinRequestVerification() {
         verification.mutex.withLock {
             if (!userPending.containsKey(verification.token)) return@withLock
             logger.info("Admin ${admin.user.detailName} manually passed ${verification.user.detailName} in chat ${verification.chat.detailName}")
-            approveChatJoinRequest(verification.chat, verification.user)
+            runCatching { approveChatJoinRequest(verification.chat, verification.user) }
             sendTextMessage(verification.user, verification.language.manualPassPrivate)
             sendTextMessage(verification.chat, String.format(Constants.manualPassGroup, query.from.fullName, verification.user.fullName))
             verification.doClean(this)
