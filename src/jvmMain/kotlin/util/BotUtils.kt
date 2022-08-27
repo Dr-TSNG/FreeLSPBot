@@ -3,12 +3,14 @@ package util
 import com.soywiz.klock.DateTime
 import com.soywiz.klock.TimeSpan
 import dev.inmo.tgbotapi.bot.TelegramBot
+import dev.inmo.tgbotapi.extensions.api.chat.get.getChatAdministrators
 import dev.inmo.tgbotapi.extensions.api.chat.members.banChatMember
 import dev.inmo.tgbotapi.extensions.api.chat.members.unbanChatMember
 import dev.inmo.tgbotapi.extensions.utils.asWithOptionalLanguageCode
 import dev.inmo.tgbotapi.types.chat.Chat
 import dev.inmo.tgbotapi.types.chat.PublicChat
 import dev.inmo.tgbotapi.types.chat.User
+import dev.inmo.tgbotapi.types.chat.member.AdministratorChatMember
 import dev.inmo.tgbotapi.types.toTelegramDate
 import dev.inmo.tgbotapi.utils.PreviewFeature
 import kotlinx.coroutines.Dispatchers
@@ -52,6 +54,16 @@ object BotUtils {
         } else {
             logger.warn("Failed to kick user ${user.detailName} from chat ${chat.id.chatId}")
         }
+    }
+
+    suspend fun TelegramBot.getGroupAdmin(
+        chat: PublicChat,
+        user: User?,
+        filter: (AdministratorChatMember) -> Boolean = { true }
+    ): AdministratorChatMember? {
+        if (user == null) return null
+        val admins = getChatAdministrators(chat)
+        return admins.find { it.user.id.chatId == user.id.chatId && filter(it) }
     }
 
     suspend fun getCommonChats(chatId: Long, userId: Long): Int? {

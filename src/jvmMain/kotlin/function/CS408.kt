@@ -27,7 +27,7 @@ suspend fun installCS408() {
         val user = it.from ?: return@onCommand
         logger.debug("/rqb command from ${user.detailName}")
         if (user.id.chatId != config.admin) {
-            sendMessage(it.chat, Constants.notAdmin)
+            sendMessage(it.chat, Constants.notOwner)
         } else {
             CS408.refreshPool()
             val (bankSize, _) = CS408.getBankStatus()

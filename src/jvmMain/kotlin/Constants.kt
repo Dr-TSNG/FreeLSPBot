@@ -9,12 +9,19 @@ interface Constants {
             /rqa  - 随机抽取一道 408 计算机考研选择题（匿名投票）
             /qb   - 查看当前题池状态
             /rqb  - （管理员命令）立即刷新题池
-            /jr   - 获取当前群入群验证设置
-            /jr_retry <times> - 设置当前入群验证重试次数
-            /jr_timeout <([0-9]*[dhm])*> - 设置当前入群验证超时时间
-            /jr_fail2ban <([0-9]*[dhm])*> - 设置当前入群验证失败封禁时间
+            
+            /jrctl <on/off> - 开启/关闭入群验证
+            /jr_info - 获取当前群入群验证设置
+            /jr_statistics - 获取当前群入群验证统计
+            /jr_timeout <([0-9]*[dhm])*> - 设置当前入群验证超时时间（最少1m）
+            /jr_fail2ban <([0-9]*[dhm])*> - 设置当前入群验证失败封禁时间（最少1m）
         """.trimIndent()
 
+        const val invalidCommand = "无效的命令"
+        const val setSuccessful = "设置成功"
+        const val groupOnly = "该指令只能在群内使用"
+        const val adminRequired = "该指令仅限具有 %s 权限的管理员才能使用"
+        const val groupNotInWhiteList = "该群不在白名单中，如需使用请联系 bot 主人"
         const val groupVerifyMessage = "新成员 %s 正在进行入群验证"
         const val manualPass = "人工通过（管理员）"
         const val manualDecline = "人工拒绝（管理员）"
@@ -23,9 +30,11 @@ interface Constants {
         const val passVerifyGroup = "新成员 %s 通过验证"
         const val failVerifyGroup = "%s 未通过验证，已被临时封禁"
         const val filteredSuspiciousUser = "可疑用户 %s 尝试加入群聊，已忽略"
+        const val joinRequestSettings = "当前入群验证设置：\n是否启用 %s\n验证方式 %s\n超时时间 %s\n失败封禁时间 %s"
+        const val joinRequestStatistics = "当前群聊共进行 %d 次验证，通过 %d 次，通过率 %.2f%%"
 
         const val questionBankStatus = "当前题库中加载了 %d 道题，题池中剩余 %d 道题"
-        const val notAdmin = "你不是该 bot 的主人"
+        const val notOwner = "你不是该 bot 的主人"
         const val refreshQuestionBank = "已刷新题库，加载了 %d 道题"
 
         fun errorOccurred(e: Throwable) = "发生未知错误\n" + e.message?.replace(config.token, "******")
