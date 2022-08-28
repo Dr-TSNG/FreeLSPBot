@@ -275,7 +275,7 @@ suspend fun installJoinRequestVerification() {
 
     onCommand("jr_statistics") { msg ->
         val dao = getDaoOrSendError(msg) ?: return@onCommand
-        sendTextMessage(msg.chat, String.format(Constants.joinRequestStatistics, dao.total, dao.accepted, 1.0 * dao.accepted / dao.total))
+        sendTextMessage(msg.chat, String.format(Constants.joinRequestStatistics, dao.total, dao.accepted, 100.0 * dao.accepted / dao.total))
     }
 
     onCommandWithArgs("jr_timeout") { msg, args ->
