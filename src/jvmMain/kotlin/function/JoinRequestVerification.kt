@@ -6,6 +6,7 @@ import English
 import WebAppDataWrapper
 import botSelf
 import config
+import database.CommonChatsTable
 import database.JoinRequestDao
 import dev.inmo.tgbotapi.bot.TelegramBot
 import dev.inmo.tgbotapi.extensions.api.chat.get.getChatAdministrators
@@ -44,7 +45,6 @@ import plugin.Captcha
 import util.BotUtils.detailName
 import util.BotUtils.fullName
 import util.BotUtils.fullNameExt
-import util.BotUtils.getCommonChats
 import util.BotUtils.getGroupAdmin
 import util.BotUtils.isChinese
 import util.BotUtils.kickUser
@@ -241,8 +241,8 @@ fun Routing.configureJoinRequestRouting(
 }
 
 context(BehaviourContext)
-@OptIn(RiskFeature::class)
-suspend fun installJoinRequestVerification() {
+        @OptIn(RiskFeature::class)
+        suspend fun installJoinRequestVerification() {
     suspend fun checkAdminCanChangeInfo(group: PublicChat, user: User?): Boolean {
         val admin = getGroupAdmin(group, user) { it.canChangeInfo }
         if (admin == null) {
@@ -316,28 +316,16 @@ suspend fun installJoinRequestVerification() {
         } ?: return@onChatJoinRequest
         if (!dao.enabled) return@onChatJoinRequest
 
-        var commonChats: Int? = null
-        var easyMode = false
-        if (dao.commonChatLeast != null) {
-            commonChats = getCommonChats(req.chat.id.chatId, req.user.id.chatId)
-            if (commonChats == null) {
-                runCatching { declineChatJoinRequest(req) }
-                val language = if (req.user.isChinese) Chinese else English
-                sendTextMessage(req.user, language.errorVerifyPrivate)
-                return@onChatJoinRequest
-            } else if (commonChats < dao.commonChatLeast!!) {
-                runCatching { declineChatJoinRequest(req) }
-                val msg = sendTextMessage(req.chat, String.format(Constants.filteredSuspiciousUser, req.user.detailName))
-                launch {
-                    delay(Duration.parse("1m"))
-                    deleteMessage(msg)
-                }
-                return@onChatJoinRequest
+        val commonChats = CommonChatsTable.getCommonChatsForUserId(req.user.id.chatId)
+        val easyMode = commonChats >= (dao.commonChatEasy ?: Byte.MAX_VALUE)
+        if (commonChats < (dao.commonChatLeast ?: 0)) {
+            runCatching { declineChatJoinRequest(req) }
+            val msg = sendTextMessage(req.chat, String.format(Constants.filteredSuspiciousUser, req.user.detailName))
+            launch {
+                delay(Duration.parse("1m"))
+                deleteMessage(msg)
             }
-        }
-        if (dao.commonChatEasy != null) {
-            if (commonChats == null) commonChats = getCommonChats(req.chat.id.chatId, req.user.id.chatId)
-            if (commonChats != null && commonChats >= dao.commonChatEasy!!) easyMode = true
+            return@onChatJoinRequest
         }
 
         createVerification(dao, req.chat, req.user, easyMode)

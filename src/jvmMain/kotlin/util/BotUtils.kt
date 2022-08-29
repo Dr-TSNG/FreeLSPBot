@@ -13,8 +13,6 @@ import dev.inmo.tgbotapi.types.chat.User
 import dev.inmo.tgbotapi.types.chat.member.AdministratorChatMember
 import dev.inmo.tgbotapi.types.toTelegramDate
 import dev.inmo.tgbotapi.utils.PreviewFeature
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import logger
 import kotlin.time.Duration
 import kotlin.time.DurationUnit
@@ -64,29 +62,5 @@ object BotUtils {
         if (user == null) return null
         val admins = getChatAdministrators(chat)
         return admins.find { it.user.id.chatId == user.id.chatId && filter(it) }
-    }
-
-    suspend fun getCommonChats(chatId: Long, userId: Long): Int? {
-        return withContext(Dispatchers.IO) {
-            val p = ProcessBuilder(
-                "python",
-                "data/userbotcli/userbotcli.py",
-                "get-common-chats", chatId.toString(), userId.toString()
-            ).run {
-                redirectErrorStream(true)
-                start()
-            }
-            p.inputReader().use {
-                val code = it.readLine()
-                if (code != "Successful") {
-                    val err = "$code\n" + it.readText()
-                    logger.error(err.trimEnd())
-                    return@withContext null
-                }
-                val commonChats = it.readLines().size
-                logger.debug("Found $commonChats common chats for user $userId in base chat $chatId")
-                return@withContext commonChats
-            }
-        }
     }
 }
