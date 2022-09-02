@@ -11,6 +11,7 @@ import dev.inmo.tgbotapi.types.chat.Chat
 import dev.inmo.tgbotapi.types.chat.PublicChat
 import dev.inmo.tgbotapi.types.chat.User
 import dev.inmo.tgbotapi.types.chat.member.AdministratorChatMember
+import dev.inmo.tgbotapi.types.message.textsources.mention
 import dev.inmo.tgbotapi.types.toTelegramDate
 import dev.inmo.tgbotapi.utils.PreviewFeature
 import logger
@@ -19,15 +20,19 @@ import kotlin.time.DurationUnit
 
 object BotUtils {
 
-    val User.fullName: String
+    val User.fullNameMention: String
         get() {
             val combineName = "$firstName $lastName".trim()
             return if (username == null) combineName
-            else "[$combineName](${username!!.username})"
+            else mention(combineName, this).markdownV2
         }
 
     val User.detailName: String
-        get() = "$fullName [${id.chatId}]"
+        get() = buildString {
+            append("$firstName $lastName".trim())
+            username?.let { append(" ${it.username}") }
+            append(" [${id.chatId}]")
+        }
 
     @OptIn(PreviewFeature::class)
     val User.isChinese: Boolean

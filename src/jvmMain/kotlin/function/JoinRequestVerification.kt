@@ -28,6 +28,7 @@ import dev.inmo.tgbotapi.types.buttons.InlineKeyboardButtons.CallbackDataInlineK
 import dev.inmo.tgbotapi.types.chat.GroupChat
 import dev.inmo.tgbotapi.types.chat.PublicChat
 import dev.inmo.tgbotapi.types.chat.User
+import dev.inmo.tgbotapi.types.message.MarkdownV2
 import dev.inmo.tgbotapi.types.message.abstracts.Message
 import dev.inmo.tgbotapi.utils.RiskFeature
 import dev.inmo.tgbotapi.utils.TelegramAPIUrlsKeeper
@@ -47,7 +48,7 @@ import logger
 import org.jetbrains.exposed.sql.transactions.transaction
 import plugin.Captcha
 import util.BotUtils.detailName
-import util.BotUtils.fullName
+import util.BotUtils.fullNameMention
 import util.BotUtils.getGroupAdmin
 import util.BotUtils.isChinese
 import util.BotUtils.kickUser
@@ -120,7 +121,8 @@ private suspend fun TelegramBot.createVerification(dao: JoinRequestDao, chat: Pu
     val language = if (user.isChinese) Chinese else English
     val privateVerifyMessage = sendTextMessage(
         chat = user,
-        text = String.format(language.privateVerifyMessage, user.fullName, dao.timeout),
+        text = String.format(language.privateVerifyMessage, user.fullNameMention, dao.timeout),
+        parseMode = MarkdownV2,
         protectContent = true,
         replyMarkup = inlineKeyboard {
             row { webAppButton(language.startVerify, config.webApiUrl + "/captcha/?token=$token") }
@@ -128,7 +130,8 @@ private suspend fun TelegramBot.createVerification(dao: JoinRequestDao, chat: Pu
     )
     val groupVerifyMessage = sendTextMessage(
         chat = chat,
-        text = String.format(Constants.groupVerifyMessage, user.fullName),
+        text = String.format(Constants.groupVerifyMessage, user.fullNameMention),
+        parseMode = MarkdownV2,
         replyMarkup = inlineKeyboard {
             row {
                 +CallbackDataInlineKeyboardButton(Constants.manualPass, ManualPassCallback.encode(token))
@@ -152,7 +155,7 @@ private suspend fun TelegramBot.createVerification(dao: JoinRequestDao, chat: Pu
                 transaction { dao.total++ }
                 kickUser(chat, user, dao.fail2ban)
                 sendTextMessage(user, String.format(language.failVerifyPrivate, dao.fail2ban))
-                val failMessage = sendTextMessage(chat, String.format(Constants.failVerifyGroup, user.fullName))
+                val failMessage = sendTextMessage(chat, String.format(Constants.failVerifyGroup, user.fullNameMention), parseMode = MarkdownV2)
                 CoroutineScope(Dispatchers.Default).launch {
                     delay(Duration.parse("1m"))
                     deleteMessage(failMessage)
@@ -237,7 +240,7 @@ fun Routing.configureJoinRequestRouting(
                                 dao.accepted++
                             }
                             bot.sendTextMessage(user, language.passVerifyPrivate)
-                            bot.sendTextMessage(chat, String.format(Constants.passVerifyGroup, user.fullName))
+                            bot.sendTextMessage(chat, String.format(Constants.passVerifyGroup, user.fullNameMention), parseMode = MarkdownV2)
                             doClean(bot)
                         }
 
@@ -248,7 +251,7 @@ fun Routing.configureJoinRequestRouting(
                             transaction { dao.total++ }
                             bot.kickUser(chat, user, dao.fail2ban)
                             bot.sendTextMessage(user, String.format(language.failVerifyPrivate, dao.fail2ban))
-                            val failMessage = bot.sendTextMessage(chat, String.format(Constants.failVerifyGroup, user.fullName))
+                            val failMessage = bot.sendTextMessage(chat, String.format(Constants.failVerifyGroup, user.fullNameMention), parseMode = MarkdownV2)
                             CoroutineScope(Dispatchers.Default).launch {
                                 delay(Duration.parse("1m"))
                                 bot.deleteMessage(failMessage)
@@ -364,7 +367,7 @@ suspend fun installJoinRequestVerification() {
                 log(chat, user, LogMessage.MANUAL_PASS, admin.user)
                 runCatching { approveChatJoinRequest(chat, user) }
                 sendTextMessage(user, language.manualPassPrivate)
-                sendTextMessage(chat, String.format(Constants.manualPassGroup, query.from.fullName, user.fullName))
+                sendTextMessage(chat, String.format(Constants.manualPassGroup, query.from.fullNameMention, user.fullNameMention), parseMode = MarkdownV2)
                 doClean(this@onDataCallbackQuery)
             }
         }
@@ -381,7 +384,7 @@ suspend fun installJoinRequestVerification() {
                 log(chat, user, LogMessage.MANUAL_DECLINE, admin.user)
                 runCatching { declineChatJoinRequest(chat, user) }
                 bot.kickUser(chat, user, dao.fail2ban)
-                sendTextMessage(chat, String.format(Constants.manualDeclineGroup, query.from.fullName, user.fullName))
+                sendTextMessage(chat, String.format(Constants.manualDeclineGroup, query.from.fullNameMention, user.fullNameMention), parseMode = MarkdownV2)
                 doClean(this@onDataCallbackQuery)
             }
         }

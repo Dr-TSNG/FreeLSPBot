@@ -3,8 +3,12 @@ import dev.inmo.tgbotapi.extensions.api.send.sendMessage
 import dev.inmo.tgbotapi.extensions.api.telegramBot
 import dev.inmo.tgbotapi.extensions.behaviour_builder.buildBehaviourWithLongPolling
 import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onCommand
+import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onCommandWithArgs
+import dev.inmo.tgbotapi.extensions.utils.extensions.raw.from
 import dev.inmo.tgbotapi.extensions.utils.updates.retrieving.flushAccumulatedUpdates
 import dev.inmo.tgbotapi.types.chat.ExtendedBot
+import dev.inmo.tgbotapi.types.message.MarkdownV2
+import dev.inmo.tgbotapi.utils.RiskFeature
 import dev.inmo.tgbotapi.utils.TelegramAPIUrlsKeeper
 import function.configureJoinRequestRouting
 import function.installCS408
@@ -22,8 +26,10 @@ import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.json.Json
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.*
 import mu.KotlinLogging
+import org.jetbrains.exposed.exceptions.ExposedSQLException
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.Slf4jSqlDebugLogger
 import org.jetbrains.exposed.sql.addLogger
@@ -51,6 +57,7 @@ private fun initDatabase() {
     }
 }
 
+@OptIn(RiskFeature::class)
 suspend fun main() {
     initDatabase()
     val telegramBotAPIUrlsKeeper = TelegramAPIUrlsKeeper(config.token, config.botApiUrl)
@@ -85,6 +92,45 @@ suspend fun main() {
 
         onCommand("start") {
             sendMessage(it.chat, Constants.help)
+        }
+
+        onCommandWithArgs("sql") { msg, args ->
+            if (msg.from?.id?.chatId != config.admin) {
+                sendMessage(msg.chat, Constants.notOwner)
+                return@onCommandWithArgs
+            }
+            val cmd = args.joinToString(" ")
+            val result = StringBuilder()
+            try {
+                transaction {
+                    exec(cmd) { rs ->
+                        result.appendLine("```")
+                        val cols = List(rs.metaData.columnCount) { rs.metaData.getColumnName(it + 1) }
+                        val json = buildJsonArray {
+                            while (rs.next()) {
+                                addJsonObject {
+                                    cols.forEachIndexed { index, name ->
+                                        when (val obj = rs.getObject(index + 1)) {
+                                            null -> put(name, JsonNull)
+                                            is Boolean -> put(name, obj)
+                                            is Number -> put(name, obj)
+                                            is String -> put(name, obj)
+                                            else -> put(name, obj.toString())
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        val formatter = Json { prettyPrint = true }
+                        result.append(formatter.encodeToString(json))
+                        result.appendLine().append("```")
+                    } ?: result.append("Empty result")
+                }
+            } catch (e: ExposedSQLException) {
+                result.append("SQL statement error")
+            }
+
+            sendMessage(msg.chat, result.toString(), parseMode = MarkdownV2)
         }
 
         installCS408()
