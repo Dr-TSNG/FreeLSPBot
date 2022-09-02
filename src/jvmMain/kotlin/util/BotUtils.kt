@@ -20,16 +20,14 @@ import kotlin.time.DurationUnit
 object BotUtils {
 
     val User.fullName: String
-        get() = "$firstName $lastName".trim()
-
-    val User.fullNameExt: String
-        get() = buildString {
-            append(fullName)
-            username?.let { append(" ${it.username}") }
+        get() {
+            val combineName = "$firstName $lastName".trim()
+            return if (username == null) combineName
+            else "[$combineName](${username!!.username})"
         }
 
     val User.detailName: String
-        get() = "$fullNameExt [${id.chatId}]"
+        get() = "$fullName [${id.chatId}]"
 
     @OptIn(PreviewFeature::class)
     val User.isChinese: Boolean

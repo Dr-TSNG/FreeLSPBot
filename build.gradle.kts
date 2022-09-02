@@ -62,6 +62,7 @@ kotlin {
                 implementation("org.jetbrains.exposed:exposed-core:$exposedVersion")
                 implementation("org.jetbrains.exposed:exposed-dao:$exposedVersion")
                 implementation("org.jetbrains.exposed:exposed-jdbc:$exposedVersion")
+                implementation("org.jetbrains.exposed:exposed-kotlin-datetime:$exposedVersion")
                 runtimeOnly("mysql:mysql-connector-java:8.0.30")
                 runtimeOnly("org.apache.logging.log4j:log4j-slf4j-impl:2.18.0")
                 runtimeOnly("org.apache.logging.log4j:log4j-core:2.18.0")
