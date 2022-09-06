@@ -92,7 +92,7 @@ private object ManualDeclineCallback {
 }
 
 private enum class LogMessage {
-    CREATE, PASS, FAIL, TIMEOUT, MANUAL_PASS, MANUAL_DECLINE
+    IGNORE, CREATE, PASS, FAIL, TIMEOUT, MANUAL_PASS, MANUAL_DECLINE
 }
 
 private val userPending = ConcurrentHashMap<String, Verification>()
@@ -345,7 +345,8 @@ suspend fun installJoinRequestVerification() {
         val easyMode = commonChats >= (dao.commonChatEasy ?: Byte.MAX_VALUE)
         if (commonChats < (dao.commonChatLeast ?: 0)) {
             runCatching { declineChatJoinRequest(req) }
-            val msg = sendTextMessage(req.chat, String.format(Constants.filteredSuspiciousUser, req.user.detailName))
+            log(req.chat, req.user, LogMessage.IGNORE)
+            val msg = sendTextMessage(req.chat, String.format(Constants.filteredSuspiciousUser, req.user.fullNameMention), parseMode = MarkdownV2)
             launch {
                 delay(Duration.parse("1m"))
                 deleteMessage(msg)
@@ -383,7 +384,7 @@ suspend fun installJoinRequestVerification() {
                 if (!userPending.containsKey(token)) return@withLock
                 log(chat, user, LogMessage.MANUAL_DECLINE, admin.user)
                 runCatching { declineChatJoinRequest(chat, user) }
-                bot.kickUser(chat, user, dao.fail2ban)
+                bot.kickUser(chat, user, null)
                 sendTextMessage(chat, String.format(Constants.manualDeclineGroup, query.from.fullNameMention, user.fullNameMention), parseMode = MarkdownV2)
                 doClean(this@onDataCallbackQuery)
             }
