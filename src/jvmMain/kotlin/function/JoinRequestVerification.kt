@@ -13,6 +13,7 @@ import dev.inmo.tgbotapi.bot.TelegramBot
 import dev.inmo.tgbotapi.extensions.api.chat.get.getChatAdministrators
 import dev.inmo.tgbotapi.extensions.api.chat.invite_links.approveChatJoinRequest
 import dev.inmo.tgbotapi.extensions.api.chat.invite_links.declineChatJoinRequest
+import dev.inmo.tgbotapi.extensions.api.chat.members.banChatMember
 import dev.inmo.tgbotapi.extensions.api.deleteMessage
 import dev.inmo.tgbotapi.extensions.api.send.sendTextMessage
 import dev.inmo.tgbotapi.extensions.behaviour_builder.BehaviourContext
@@ -384,7 +385,7 @@ suspend fun installJoinRequestVerification() {
                 if (!userPending.containsKey(token)) return@withLock
                 log(chat, user, LogMessage.MANUAL_DECLINE, admin.user)
                 runCatching { declineChatJoinRequest(chat, user) }
-                bot.kickUser(chat, user, null)
+                bot.banChatMember(chat, user)
                 sendTextMessage(chat, String.format(Constants.manualDeclineGroup, query.from.fullNameMention, user.fullNameMention), parseMode = MarkdownV2)
                 doClean(this@onDataCallbackQuery)
             }

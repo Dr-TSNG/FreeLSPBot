@@ -3,13 +3,12 @@ interface Constants {
     companion object {
         val help = """
             该 bot 具有以下功能：
-
-            手性碳入群验证：如需使用请联系作者
             /rq   - 随机抽取一道 408 计算机考研选择题（实名投票）
             /rqa  - 随机抽取一道 408 计算机考研选择题（匿名投票）
             /qb   - 查看当前题池状态
             /rqb  - （管理员命令）立即刷新题池
             
+            手性碳入群验证：如需使用请联系作者：
             /jrctl <on/off> - 开启/关闭入群验证
             /jr_info - 获取当前群入群验证设置
             /jr_statistics - 获取当前群入群验证统计
@@ -25,8 +24,8 @@ interface Constants {
         const val groupVerifyMessage = "新成员 %s 正在进行入群验证"
         const val manualPass = "人工通过（管理员）"
         const val manualDecline = "人工拒绝（管理员）"
-        const val manualPassGroup = "管理员 %s 人工通过了 %s 的入群验证"
-        const val manualDeclineGroup = "管理员 %s 人工拒绝了 %s 的入群验证"
+        const val manualPassGroup = "管理员 %s 通过了 %s 的入群验证"
+        const val manualDeclineGroup = "管理员 %s 拒绝了 %s 的入群验证"
         const val passVerifyGroup = "新成员 %s 通过验证"
         const val failVerifyGroup = "%s 未通过验证，已被临时封禁"
         const val filteredSuspiciousUser = "可疑用户 %s 尝试加入群聊，已忽略"

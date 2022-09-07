@@ -43,9 +43,10 @@ object BotUtils {
 
     suspend fun TelegramBot.kickUser(chat: Chat, user: User, ban: String?) {
         val time = ban?.let {
-            Duration.parse(ban).toDouble(DurationUnit.MILLISECONDS)
+            val ms = Duration.parse(it).toDouble(DurationUnit.MILLISECONDS)
+            DateTime.now().plus(TimeSpan(ms)).toTelegramDate()
         }
-        if (banChatMember(chat.id, user, time?.let { DateTime.now().plus(TimeSpan(it)).toTelegramDate() })) {
+        if (banChatMember(chat.id, user, time)) {
             if (ban == null) {
                 unbanChatMember(chat.id, user)
                 logger.info("Kick user ${user.detailName} from chat ${chat.id.chatId}")
