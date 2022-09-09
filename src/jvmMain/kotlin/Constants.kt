@@ -7,7 +7,8 @@ interface Constants {
             /rqa  - 随机抽取一道 408 计算机考研选择题（匿名投票）
             /qb   - 查看当前题池状态
             /rqb  - （管理员命令）立即刷新题池
-            
+            /draw <水彩|油画|粉笔画|卡通|蜡笔画|儿童画> <描述词> - 文生图
+
             手性碳入群验证：如需使用请联系作者：
             /jrctl <on/off> - 开启/关闭入群验证
             /jr_info - 获取当前群入群验证设置
@@ -31,6 +32,10 @@ interface Constants {
         const val filteredSuspiciousUser = "可疑用户 %s 尝试加入群聊，已忽略"
         const val joinRequestSettings = "当前入群验证设置：\n是否启用 %s\n验证方式 %s\n超时时间 %s\n失败封禁时间 %s"
         const val joinRequestStatistics = "当前群聊共进行 %d 次验证，通过 %d 次，通过率 %.2f%%"
+
+        const val drawPending = "有尚未完成的生成任务，请稍后重试"
+        const val drawingPicture = "正在生成图片，请稍后..."
+        const val drawPictureFailed = "生成图片失败，可能的原因：API 已被关闭/网络错误/存在敏感词"
 
         const val questionBankStatus = "当前题库中加载了 %d 道题，题池中剩余 %d 道题"
         const val notOwner = "你不是该 bot 的主人"

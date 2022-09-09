@@ -10,10 +10,7 @@ import dev.inmo.tgbotapi.types.chat.ExtendedBot
 import dev.inmo.tgbotapi.types.message.MarkdownV2
 import dev.inmo.tgbotapi.utils.RiskFeature
 import dev.inmo.tgbotapi.utils.TelegramAPIUrlsKeeper
-import function.configureJoinRequestRouting
-import function.installCS408
-import function.installJoinRequestVerification
-import function.installTwiFucker
+import function.*
 import io.ktor.client.*
 import io.ktor.client.engine.*
 import io.ktor.client.engine.okhttp.*
@@ -134,7 +131,8 @@ suspend fun main() {
         }
 
         installCS408()
-        installTwiFucker()
+        installDraw()
         installJoinRequestVerification()
+        installTwiFucker()
     }.join()
 }

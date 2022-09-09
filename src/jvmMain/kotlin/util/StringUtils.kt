@@ -8,4 +8,7 @@ object StringUtils {
             .map { allowedChars.random() }
             .joinToString("")
     }
+
+    val String.isAllChinese
+        get() = matches(Regex("[\\u4e00-\\u9fa5，]+"))
 }

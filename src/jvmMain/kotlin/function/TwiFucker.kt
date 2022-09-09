@@ -22,7 +22,7 @@ import java.net.URLClassLoader
 import kotlin.time.Duration
 
 @Serializable
-private class Config(
+private class TFConfig(
     val patcher: String,
     val module: String,
     val channel: Long,
@@ -44,7 +44,7 @@ fun installTwiFucker() {
         while (true) {
             suspend fun block() {
                 logger.debug("Check for new Twitter version")
-                val config = Json.decodeFromString<Config>(File(configFile).readText())
+                val config = Json.decodeFromString<TFConfig>(File(configFile).readText())
                 val app = googlePlay.getAppInfo(twitter).getOrElse {
                     logger.error("Failed to get app info for $twitter", it)
                     return@block

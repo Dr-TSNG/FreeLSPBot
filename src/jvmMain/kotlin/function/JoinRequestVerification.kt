@@ -53,6 +53,7 @@ import util.BotUtils.fullNameMention
 import util.BotUtils.getGroupAdmin
 import util.BotUtils.isChinese
 import util.BotUtils.kickUser
+import util.BotUtils.sendAutoDeleteMessage
 import util.StringUtils
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
@@ -92,13 +93,13 @@ private object ManualDeclineCallback {
     fun decode(data: String): Verification? = userPending[data.substringAfter(':')]
 }
 
-private enum class LogMessage {
+private enum class JRLogMessage {
     IGNORE, CREATE, PASS, FAIL, TIMEOUT, MANUAL_PASS, MANUAL_DECLINE
 }
 
 private val userPending = ConcurrentHashMap<String, Verification>()
 
-private fun log(chat: PublicChat, user: User, message: LogMessage, admin: User? = null) {
+private fun log(chat: PublicChat, user: User, message: JRLogMessage, admin: User? = null) {
     transaction {
         LogDao.new {
             this.type = "JOIN_REQUEST"
@@ -114,7 +115,7 @@ private fun log(chat: PublicChat, user: User, message: LogMessage, admin: User? 
 }
 
 private suspend fun TelegramBot.createVerification(dao: JoinRequestDao, chat: PublicChat, user: User, easyMode: Boolean) {
-    log(chat, user, LogMessage.CREATE)
+    log(chat, user, JRLogMessage.CREATE)
     var token: String
     do {
         token = StringUtils.getRandomString(16)
@@ -151,16 +152,12 @@ private suspend fun TelegramBot.createVerification(dao: JoinRequestDao, chat: Pu
             delay(Duration.parse(dao.timeout))
             it.mutex.withLock {
                 if (!userPending.containsKey(token)) return@withLock
-                log(chat, user, LogMessage.TIMEOUT)
+                log(chat, user, JRLogMessage.TIMEOUT)
                 runCatching { declineChatJoinRequest(chat, user) }
                 transaction { dao.total++ }
                 kickUser(chat, user, dao.fail2ban)
                 sendTextMessage(user, String.format(language.failVerifyPrivate, dao.fail2ban))
-                val failMessage = sendTextMessage(chat, String.format(Constants.failVerifyGroup, user.fullNameMention), parseMode = MarkdownV2)
-                CoroutineScope(Dispatchers.Default).launch {
-                    delay(Duration.parse("1m"))
-                    deleteMessage(failMessage)
-                }
+                sendAutoDeleteMessage(chat, String.format(Constants.failVerifyGroup, user.fullNameMention), parseMode = MarkdownV2)
                 it.doClean(this@createVerification)
             }
         }
@@ -233,7 +230,7 @@ fun Routing.configureJoinRequestRouting(
                         }
 
                         "Success" -> {
-                            log(chat, user, LogMessage.PASS)
+                            log(chat, user, JRLogMessage.PASS)
                             close(CloseReason(CloseReason.Codes.NORMAL, "Verification successful"))
                             runCatching { bot.approveChatJoinRequest(chat, user) }
                             transaction {
@@ -246,17 +243,13 @@ fun Routing.configureJoinRequestRouting(
                         }
 
                         "Failure" -> {
-                            log(chat, user, LogMessage.FAIL)
+                            log(chat, user, JRLogMessage.FAIL)
                             close(CloseReason(CloseReason.Codes.NORMAL, "Verification failed"))
                             runCatching { bot.declineChatJoinRequest(chat, user) }
                             transaction { dao.total++ }
                             bot.kickUser(chat, user, dao.fail2ban)
                             bot.sendTextMessage(user, String.format(language.failVerifyPrivate, dao.fail2ban))
-                            val failMessage = bot.sendTextMessage(chat, String.format(Constants.failVerifyGroup, user.fullNameMention), parseMode = MarkdownV2)
-                            CoroutineScope(Dispatchers.Default).launch {
-                                delay(Duration.parse("1m"))
-                                bot.deleteMessage(failMessage)
-                            }
+                            bot.sendAutoDeleteMessage(chat, String.format(Constants.failVerifyGroup, user.fullNameMention), parseMode = MarkdownV2)
                             doClean(bot)
                         }
                     }
@@ -346,12 +339,8 @@ suspend fun installJoinRequestVerification() {
         val easyMode = commonChats >= (dao.commonChatEasy ?: Byte.MAX_VALUE)
         if (commonChats < (dao.commonChatLeast ?: 0)) {
             runCatching { declineChatJoinRequest(req) }
-            log(req.chat, req.user, LogMessage.IGNORE)
-            val msg = sendTextMessage(req.chat, String.format(Constants.filteredSuspiciousUser, req.user.fullNameMention), parseMode = MarkdownV2)
-            launch {
-                delay(Duration.parse("1m"))
-                deleteMessage(msg)
-            }
+            log(req.chat, req.user, JRLogMessage.IGNORE)
+            sendAutoDeleteMessage(req.chat, String.format(Constants.filteredSuspiciousUser, req.user.fullNameMention), parseMode = MarkdownV2)
             return@onChatJoinRequest
         }
 
@@ -366,7 +355,7 @@ suspend fun installJoinRequestVerification() {
         with(verification) {
             mutex.withLock {
                 if (!userPending.containsKey(token)) return@withLock
-                log(chat, user, LogMessage.MANUAL_PASS, admin.user)
+                log(chat, user, JRLogMessage.MANUAL_PASS, admin.user)
                 runCatching { approveChatJoinRequest(chat, user) }
                 sendTextMessage(user, language.manualPassPrivate)
                 sendTextMessage(chat, String.format(Constants.manualPassGroup, query.from.fullNameMention, user.fullNameMention), parseMode = MarkdownV2)
@@ -383,7 +372,7 @@ suspend fun installJoinRequestVerification() {
         with(verification) {
             mutex.withLock {
                 if (!userPending.containsKey(token)) return@withLock
-                log(chat, user, LogMessage.MANUAL_DECLINE, admin.user)
+                log(chat, user, JRLogMessage.MANUAL_DECLINE, admin.user)
                 runCatching { declineChatJoinRequest(chat, user) }
                 bot.banChatMember(chat, user)
                 sendTextMessage(chat, String.format(Constants.manualDeclineGroup, query.from.fullNameMention, user.fullNameMention), parseMode = MarkdownV2)
