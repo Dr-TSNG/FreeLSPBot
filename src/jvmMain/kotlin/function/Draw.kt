@@ -80,7 +80,12 @@ suspend fun installDraw() {
                     deleteMessage(drawing)
                 }
                 if (files.isNullOrEmpty()) {
-                    sendAutoDeleteMessage(msg.chat, Constants.drawPictureFailed)
+                    sendAutoDeleteMessage(
+                        msg.chat,
+                        Constants.drawPictureFailed,
+                        replyToMessageId = msg.messageId,
+                        allowSendingWithoutReply = true
+                    )
                     log(msg.chat.asPublicChat(), msg.from, DrawLogMessage.FAILED)
                     return@launch
                 }
