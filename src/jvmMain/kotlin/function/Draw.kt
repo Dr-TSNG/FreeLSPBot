@@ -16,6 +16,8 @@ import dev.inmo.tgbotapi.types.media.TelegramMediaPhoto
 import dev.inmo.tgbotapi.utils.PreviewFeature
 import dev.inmo.tgbotapi.utils.RiskFeature
 import io.ktor.util.collections.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
@@ -105,13 +107,19 @@ suspend fun installDraw() {
                     log(msg.chat.asPublicChat(), msg.from, DrawLogMessage.FAILED)
                     return@launch
                 }
-                sendVisualMediaGroup(
+                val medias = sendVisualMediaGroup(
                     msg.chat,
                     files.map { TelegramMediaPhoto(InputFile(it)) },
                     replyToMessageId = msg.messageId,
                     allowSendingWithoutReply = true
                 )
                 log(msg.chat.asPublicChat(), msg.from, DrawLogMessage.SUCCESS)
+                CoroutineScope(Dispatchers.Default).launch {
+                    delay(Duration.parse("3m"))
+                    medias.forEach {
+                        runCatching { deleteMessage(it) }
+                    }
+                }
             } finally {
                 files?.forEach(File::delete)
             }
