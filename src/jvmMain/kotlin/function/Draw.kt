@@ -1,5 +1,6 @@
 package function
 
+import Constants
 import database.LogDao
 import dev.inmo.tgbotapi.extensions.api.deleteMessage
 import dev.inmo.tgbotapi.extensions.api.send.media.sendVisualMediaGroup
@@ -15,7 +16,6 @@ import dev.inmo.tgbotapi.types.media.TelegramMediaPhoto
 import dev.inmo.tgbotapi.utils.PreviewFeature
 import dev.inmo.tgbotapi.utils.RiskFeature
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -37,8 +37,6 @@ private enum class DrawLogMessage {
 }
 
 private const val configFile = "data/draw/config.json"
-
-private val mutex = Mutex()
 
 private fun log(chat: PublicChat?, user: User?, message: DrawLogMessage) {
     transaction {
@@ -69,11 +67,6 @@ suspend fun installDraw() {
         }
 
         launch {
-            if (!mutex.tryLock()) {
-                sendAutoDeleteMessage(msg.chat, Constants.drawPending, replyToMessageId = msg.messageId)
-                return@launch
-            }
-
             var files: Array<File>? = null
             try {
                 val drawing = reply(msg, Constants.drawingPicture)
@@ -99,7 +92,6 @@ suspend fun installDraw() {
                 )
                 log(msg.chat.asPublicChat(), msg.from, DrawLogMessage.SUCCESS)
             } finally {
-                mutex.unlock()
                 files?.forEach(File::delete)
             }
         }
