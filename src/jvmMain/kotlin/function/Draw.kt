@@ -15,6 +15,8 @@ import dev.inmo.tgbotapi.types.chat.User
 import dev.inmo.tgbotapi.types.media.TelegramMediaPhoto
 import dev.inmo.tgbotapi.utils.PreviewFeature
 import dev.inmo.tgbotapi.utils.RiskFeature
+import io.ktor.util.collections.*
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
@@ -26,9 +28,11 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import plugin.ERNIEViLG
 import util.BotUtils.sendAutoDeleteMessage
 import java.io.File
+import kotlin.time.Duration
 
 @Serializable
 private class DrawConfig(
+    val coolDownTime: String,
     val allowedGroups: Set<Long>
 )
 
@@ -37,6 +41,8 @@ private enum class DrawLogMessage {
 }
 
 private const val configFile = "data/draw/config.json"
+
+private val groupLock = ConcurrentSet<Long>()
 
 private fun log(chat: PublicChat?, user: User?, message: DrawLogMessage) {
     transaction {
@@ -64,6 +70,16 @@ suspend fun installDraw() {
         if (args.size != 2) {
             sendAutoDeleteMessage(msg.chat, Constants.invalidCommand, replyToMessageId = msg.messageId)
             return@onCommandWithArgs
+        }
+
+        if (groupLock.contains(msg.chat.id.chatId)) {
+            sendAutoDeleteMessage(msg.chat, Constants.drawPending.format(config.coolDownTime), replyToMessageId = msg.messageId)
+            return@onCommandWithArgs
+        }
+        launch {
+            groupLock.add(msg.chat.id.chatId)
+            delay(Duration.parse(config.coolDownTime))
+            groupLock.remove(msg.chat.id.chatId)
         }
 
         launch {
