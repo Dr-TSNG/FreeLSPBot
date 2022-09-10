@@ -5,7 +5,6 @@ import dev.inmo.tgbotapi.extensions.behaviour_builder.buildBehaviourWithLongPoll
 import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onCommand
 import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onCommandWithArgs
 import dev.inmo.tgbotapi.extensions.utils.extensions.raw.from
-import dev.inmo.tgbotapi.extensions.utils.updates.retrieving.flushAccumulatedUpdates
 import dev.inmo.tgbotapi.types.chat.ExtendedBot
 import dev.inmo.tgbotapi.types.message.MarkdownV2
 import dev.inmo.tgbotapi.utils.RiskFeature
@@ -21,6 +20,7 @@ import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
+import io.ktor.util.reflect.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -59,9 +59,9 @@ suspend fun main() {
     initDatabase()
     val telegramBotAPIUrlsKeeper = TelegramAPIUrlsKeeper(config.token, config.botApiUrl)
     val bot = telegramBot(telegramBotAPIUrlsKeeper)
-    logger.info("Bot start.")
+    logger.info("Bot start")
 
-    embeddedServer(Netty, port = config.serverPort, host = config.serverHost) {
+    embeddedServer(Netty, port = config.serverPort, host = "localhost") {
         install(WebSockets) {
             pingPeriod = Duration.ofMinutes(1)
         }
@@ -70,7 +70,7 @@ suspend fun main() {
         }
     }.start(wait = false)
 
-    bot.flushAccumulatedUpdates()
+    //bot.flushAccumulatedUpdates()
     bot.buildBehaviourWithLongPolling(
         defaultExceptionsHandler = { e ->
             val ignore = listOf(
@@ -79,7 +79,7 @@ suspend fun main() {
                 SocketException::class,
                 SocketTimeoutException::class
             )
-            if (!ignore.stream().anyMatch { it.isInstance(e) }) {
+            if (ignore.none { e.instanceOf(it) || e.cause?.instanceOf(it) == true }) {
                 logger.error("Exception happened!", e)
             }
         }

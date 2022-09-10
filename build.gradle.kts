@@ -31,13 +31,12 @@ kotlin {
 
     @Suppress("UNUSED_VARIABLE")
     sourceSets {
-        val telegramBotApi = "3.1.1"
-        val exposedVersion = "0.39.1"
-        val ktorVersion = "2.0.3"
+        val telegramBotApi = "3.2.1"
+        val exposedVersion = "0.39.2"
+        val ktorVersion = "2.1.1"
 
         val commonMain by getting {
             dependencies {
-
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.0")
             }
         }

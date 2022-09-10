@@ -2,6 +2,7 @@ package function
 
 import Constants
 import database.LogDao
+import dev.inmo.tgbotapi.bot.exceptions.BotException
 import dev.inmo.tgbotapi.bot.exceptions.ReplyMessageNotFoundException
 import dev.inmo.tgbotapi.extensions.api.deleteMessage
 import dev.inmo.tgbotapi.extensions.api.send.media.sendVisualMediaGroup
@@ -109,8 +110,10 @@ suspend fun installDraw() {
                         runCatching { deleteMessage(it) }
                     }
                 }
-            } catch (_: ReplyMessageNotFoundException) {
-                log(task.msg.chat, task.user, DrawLogMessage.DELETED)
+            } catch (e: BotException) {
+                if (e.cause is ReplyMessageNotFoundException) {
+                    log(task.msg.chat, task.user, DrawLogMessage.DELETED)
+                } else throw e
             } catch (e: Exception) {
                 logger.error("Unexpected exception happened when drawing", e)
                 log(task.msg.chat, task.user, DrawLogMessage.FAILED)
