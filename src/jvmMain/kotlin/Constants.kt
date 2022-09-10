@@ -33,7 +33,9 @@ interface Constants {
         const val joinRequestSettings = "当前入群验证设置：\n是否启用 %s\n验证方式 %s\n超时时间 %s\n失败封禁时间 %s"
         const val joinRequestStatistics = "当前群聊共进行 %d 次验证，通过 %d 次，通过率 %.2f%%"
 
-        const val drawPending = "请求太频繁，请 %s 后重试"
+        const val drawQueueing = "排队中，请稍后..."
+        const val drawOverflow = "当前排队人数过多，请稍后再试"
+        const val drawPending = "你有尚未完成的生成任务，请等待上组图片生成完成后再试"
         const val drawingPicture = "正在生成图片，请稍后..."
         const val drawPictureFailed = "生成图片失败，可能的原因：API 已被关闭/网络错误/存在敏感词"
 
