@@ -10,6 +10,8 @@ object JoinRequestTable : LongIdTable(name = "join_request", columnName = "chat"
     val method = varchar("method", 10)
     val timeout = varchar("timeout", 10)
     val fail2ban = varchar("fail2ban", 10)
+    val nameMask = bool("name_mask")
+    val regexBan = text("regex_ban").nullable()
     val commonChatLeast = byte("common_chat_least").nullable()
     val commonChatEasy = byte("common_chat_easy").nullable()
     val total = integer("total")
@@ -23,6 +25,8 @@ class JoinRequestDao(chat: EntityID<Long>) : LongEntity(chat) {
     val method by JoinRequestTable.method
     var timeout by JoinRequestTable.timeout
     var fail2ban by JoinRequestTable.fail2ban
+    var nameMask by JoinRequestTable.nameMask
+    var regexBan by JoinRequestTable.regexBan
     val commonChatLeast by JoinRequestTable.commonChatLeast
     val commonChatEasy by JoinRequestTable.commonChatEasy
     var total by JoinRequestTable.total

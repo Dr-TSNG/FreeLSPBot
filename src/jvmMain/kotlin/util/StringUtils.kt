@@ -9,6 +9,6 @@ object StringUtils {
             .joinToString("")
     }
 
-    val String.isAllChinese
-        get() = matches(Regex("[\\u4e00-\\u9fa5，]+"))
+    val String.isAllChineseOrAlphabet
+        get() = matches(Regex("[a-zA-Z\\u4e00-\\u9fa5，]+"))
 }

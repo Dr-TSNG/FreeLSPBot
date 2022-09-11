@@ -57,6 +57,7 @@ import util.BotUtils.sendAutoDeleteMessage
 import util.StringUtils
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
+import java.util.regex.PatternSyntaxException
 import kotlin.collections.set
 import kotlin.time.Duration
 
@@ -271,20 +272,24 @@ suspend fun installJoinRequestVerification() {
         return true
     }
 
-    onCommandWithArgs("jrctl") { msg, args ->
-        val dao = getDaoOrSendError(msg) ?: return@onCommandWithArgs
+    suspend fun checkOnOff(cmd: String, msg: Message, args: Array<String>, transaction: (JoinRequestDao, Boolean) -> Unit) {
+        val dao = getDaoOrSendError(msg) ?: return
         val group = msg.chat as GroupChat
-        if (!checkAdminCanChangeInfo(group, msg.from)) return@onCommandWithArgs
-        val ctl = run {
-            if (args.size != 1 || (args[0] != "on" && args[0] != "off")) {
-                sendTextMessage(group, Constants.invalidCommand)
-                return@onCommandWithArgs
-            }
-            args[0] == "on"
+        if (!checkAdminCanChangeInfo(group, msg.from)) return
+        if (args.size != 1 || (args[0] != "on" && args[0] != "off")) {
+            sendTextMessage(group, Constants.invalidCommand)
+            return
         }
-        transaction { dao.enabled = ctl }
-        logger.info("Group ${group.detailName} changed join request verification status to $ctl")
+        val ctl = args[0] == "on"
+        transaction { transaction(dao, ctl) }
+        logger.info("Group ${group.detailName} changed join request verification $cmd to $ctl")
         sendTextMessage(msg.chat, Constants.setSuccessful)
+    }
+
+    onCommandWithArgs("jrctl") { msg, args ->
+        checkOnOff("enabled", msg, args) { dao, ctl ->
+            dao.enabled = ctl
+        }
     }
 
     onCommand("jr_info") { msg ->
@@ -319,6 +324,35 @@ suspend fun installJoinRequestVerification() {
         } else {
             transaction { dao.fail2ban = args[0] }
             logger.info("Group ${group.detailName} changed join request verification fail2ban to ${args[0]}")
+            sendTextMessage(group, Constants.setSuccessful)
+        }
+    }
+
+    onCommandWithArgs("jr_namemask") { msg, args ->
+        checkOnOff("name_mask", msg, args) { dao, ctl ->
+            dao.nameMask = ctl
+        }
+    }
+
+    onCommandWithArgs("jr_regexban") { msg, args ->
+        val dao = getDaoOrSendError(msg) ?: return@onCommandWithArgs
+        val group = msg.chat as GroupChat
+        if (!checkAdminCanChangeInfo(group, msg.from)) return@onCommandWithArgs
+        if (args.size != 1) {
+            sendTextMessage(msg.chat, Constants.invalidCommand)
+        } else {
+            if (args[0] == "off") {
+                transaction { dao.regexBan = null }
+            } else {
+                try {
+                    args[0].toRegex()
+                } catch (e: PatternSyntaxException) {
+                    sendTextMessage(msg.chat, Constants.invalidRegex)
+                    return@onCommandWithArgs
+                }
+                transaction { dao.regexBan = args[0] }
+            }
+            logger.info("Group ${group.detailName} changed join request verification regex_ban to ${dao.regexBan}")
             sendTextMessage(group, Constants.setSuccessful)
         }
     }

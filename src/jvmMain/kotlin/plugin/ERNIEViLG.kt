@@ -3,7 +3,7 @@ package plugin
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import logger
-import util.StringUtils.isAllChinese
+import util.StringUtils.isAllChineseOrAlphabet
 import java.io.File
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -12,7 +12,7 @@ import kotlin.io.path.createTempDirectory
 
 object ERNIEViLG {
 
-    private val types = setOf("水彩", "油画", "粉笔画", "卡通", "蜡笔画", "儿童画")
+    private val types = setOf("水彩", "油画", "粉笔画", "卡通", "蜡笔画", "儿童画", "探索无限")
 
     private fun buildCmd(path: String, type: String, keyword: String) = arrayOf(
         "docker", "run", "--rm",
@@ -33,7 +33,7 @@ object ERNIEViLG {
                     it.resumeWithException(IllegalArgumentException("不支持的类型：$type"))
                     return@suspendCoroutine
                 }
-                if (!keyword.isAllChinese) {
+                if (!keyword.isAllChineseOrAlphabet) {
                     it.resumeWithException(IllegalArgumentException("禁止输入非中文字符"))
                     return@suspendCoroutine
                 }

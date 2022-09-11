@@ -18,6 +18,7 @@ interface Constants {
         """.trimIndent()
 
         const val invalidCommand = "无效的命令"
+        const val invalidRegex = "无效的正则表达式"
         const val setSuccessful = "设置成功"
         const val groupOnly = "该指令只能在群内使用"
         const val adminRequired = "该指令仅限具有 %s 权限的管理员才能使用"
