@@ -34,7 +34,7 @@ object ERNIEViLG {
                     return@suspendCoroutine
                 }
                 if (!keyword.isAllChineseOrAlphabet) {
-                    it.resumeWithException(IllegalArgumentException("禁止输入非中文字符"))
+                    it.resumeWithException(IllegalArgumentException("仅支持中文和英文字符"))
                     return@suspendCoroutine
                 }
                 val cmd = buildCmd(tmpDir.toString(), type, keyword)
