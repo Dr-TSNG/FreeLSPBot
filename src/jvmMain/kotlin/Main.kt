@@ -26,6 +26,8 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 import mu.KotlinLogging
+import okhttp3.tls.HandshakeCertificates
+import okhttp3.tls.decodeCertificatePem
 import org.jetbrains.exposed.exceptions.ExposedSQLException
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.Slf4jSqlDebugLogger
@@ -37,7 +39,18 @@ import java.time.Duration
 
 val config = Json.decodeFromString<Config>(File("data/config.json").readText())
 
-val commonHttpClient = HttpClient(OkHttp)
+val commonHttpClient = HttpClient(OkHttp) {
+    engine {
+        config {
+            val certificates = HandshakeCertificates.Builder()
+                .addPlatformTrustedCertificates()
+                .addTrustedCertificate(File(config.certFile).readText().decodeCertificatePem())
+                .build()
+            sslSocketFactory(certificates.sslSocketFactory(), certificates.trustManager)
+        }
+    }
+}
+
 val proxiedHttpClient = HttpClient(OkHttp) {
     engine {
         proxy = ProxyBuilder.socks(config.proxyHost, config.proxyPort)
@@ -58,7 +71,7 @@ private fun initDatabase() {
 suspend fun main() {
     initDatabase()
     val telegramBotAPIUrlsKeeper = TelegramAPIUrlsKeeper(config.token, config.botApiUrl)
-    val bot = telegramBot(telegramBotAPIUrlsKeeper)
+    val bot = telegramBot(telegramBotAPIUrlsKeeper, commonHttpClient)
     logger.info("Bot start")
 
     embeddedServer(Netty, port = config.serverPort, host = "localhost") {
