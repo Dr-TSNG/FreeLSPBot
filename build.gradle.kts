@@ -31,7 +31,7 @@ kotlin {
 
     @Suppress("UNUSED_VARIABLE")
     sourceSets {
-        val telegramBotApi = "3.2.1"
+        val telegramBotApi = "3.2.6"
         val exposedVersion = "0.39.2"
         val ktorVersion = "2.1.1"
 
