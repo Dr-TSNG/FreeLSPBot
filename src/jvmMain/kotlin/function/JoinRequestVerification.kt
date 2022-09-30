@@ -294,7 +294,7 @@ suspend fun installJoinRequestVerification() {
 
     onCommand("jr_info") { msg ->
         val dao = getDaoOrSendError(msg) ?: return@onCommand
-        sendTextMessage(msg.chat, String.format(Constants.joinRequestSettings, dao.enabled.toString(), dao.method, dao.timeout, dao.fail2ban))
+        sendTextMessage(msg.chat, Constants.joinRequestSettings.format(dao.enabled.toString(), dao.method, dao.timeout, dao.fail2ban, dao.regexBan ?: "未启用"))
     }
 
     onCommand("jr_statistics") { msg ->
@@ -368,6 +368,15 @@ suspend fun installJoinRequestVerification() {
             JoinRequestDao.findById(req.chat.id.chatId)
         } ?: return@onChatJoinRequest
         if (!dao.enabled) return@onChatJoinRequest
+
+        if (dao.regexBan != null) {
+            if (req.user.fullNameMention.matches(dao.regexBan!!.toRegex())) {
+                declineChatJoinRequest(req)
+                banChatMember(req.chat, req.user)
+                sendAutoDeleteMessage(req.chat, Constants.regexBanned.format(req.user.fullNameMention))
+                return@onChatJoinRequest
+            }
+        }
 
         val commonChats = CommonChatsTable.getCommonChatsForUserId(req.user.id.chatId)
         val easyMode = commonChats >= (dao.commonChatEasy ?: Byte.MAX_VALUE)

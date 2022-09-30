@@ -15,6 +15,7 @@ interface Constants {
             /jr_statistics - 获取当前群入群验证统计
             /jr_timeout <([0-9]*[dhm])*> - 设置当前入群验证超时时间（最少1m）
             /jr_fail2ban <([0-9]*[dhm])*> - 设置当前入群验证失败封禁时间（最少1m）
+            /jr_regexban <regex|off> - 设置用户名封禁规则（off 关闭）
         """.trimIndent()
 
         const val invalidCommand = "无效的命令"
@@ -24,6 +25,7 @@ interface Constants {
         const val adminRequired = "该指令仅限具有 %s 权限的管理员才能使用"
         const val groupNotInWhiteList = "该群不在白名单中，如需使用请联系 bot 主人"
         const val groupVerifyMessage = "新成员 %s 正在进行入群验证"
+        const val regexBanned = "用户 %s 尝试加入群聊，根据用户名正则规则封禁"
         const val manualPass = "人工通过（管理员）"
         const val manualDecline = "人工拒绝（管理员）"
         const val manualPassGroup = "管理员 %s 通过了 %s 的入群验证"
@@ -31,7 +33,7 @@ interface Constants {
         const val passVerifyGroup = "新成员 %s 通过验证"
         const val failVerifyGroup = "%s 未通过验证，已被临时封禁"
         const val filteredSuspiciousUser = "可疑用户 %s 尝试加入群聊，已忽略"
-        const val joinRequestSettings = "当前入群验证设置：\n是否启用 %s\n验证方式 %s\n超时时间 %s\n失败封禁时间 %s"
+        const val joinRequestSettings = "当前入群验证设置：\n是否启用 %s\n验证方式 %s\n超时时间 %s\n失败封禁时间 %s\n正则用户名封禁 %s"
         const val joinRequestStatistics = "当前群聊共进行 %d 次验证，通过 %d 次，通过率 %.2f%%"
 
         const val drawQueueing = "排队中，请稍后..."
