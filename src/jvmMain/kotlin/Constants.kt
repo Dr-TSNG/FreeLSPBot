@@ -15,7 +15,8 @@ interface Constants {
             /jr_statistics - 获取当前群入群验证统计
             /jr_timeout <([0-9]*[dhm])*> - 设置当前入群验证超时时间（最少1m）
             /jr_fail2ban <([0-9]*[dhm])*> - 设置当前入群验证失败封禁时间（最少1m）
-            /jr_regexban <regex|off> - 设置用户名封禁规则（off 关闭）
+            /jr_namemask <on/off> - 开启/关闭用户名打码
+            /jr_regexban <regex/off> - 设置用户名封禁规则（off 关闭）
         """.trimIndent()
 
         const val invalidCommand = "无效的命令"
