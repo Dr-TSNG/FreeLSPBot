@@ -115,7 +115,12 @@ private fun log(chat: PublicChat, user: User, message: JRLogMessage, admin: User
     logger.info("Join request: chat ${chat.detailName} ${user.detailName} type $message")
 }
 
-private infix fun String.masked(dao: JoinRequestDao) = if (dao.nameMask) "▓▓▓▓" else this
+private infix fun String.masked(dao: JoinRequestDao) = when {
+    !dao.nameMask -> this
+    length == 1 -> this
+    length < 5 -> replaceRange(1, length - 1, "▓")
+    else -> first() + "▓▓▓▓" + last()
+}
 
 private suspend fun TelegramBot.createVerification(dao: JoinRequestDao, chat: PublicChat, user: User, easyMode: Boolean) {
     log(chat, user, JRLogMessage.CREATE)
