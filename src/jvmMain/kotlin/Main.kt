@@ -144,7 +144,6 @@ suspend fun main() {
         }
 
         installCS408()
-        installDraw()
         installJoinRequestVerification()
         installTwiFucker()
     }.join()
