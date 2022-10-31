@@ -22,8 +22,8 @@ import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onComman
 import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onCommandWithArgs
 import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onDataCallbackQuery
 import dev.inmo.tgbotapi.extensions.utils.extensions.raw.from
+import dev.inmo.tgbotapi.extensions.utils.types.buttons.flatInlineKeyboard
 import dev.inmo.tgbotapi.extensions.utils.types.buttons.inlineKeyboard
-import dev.inmo.tgbotapi.extensions.utils.types.buttons.row
 import dev.inmo.tgbotapi.extensions.utils.types.buttons.webAppButton
 import dev.inmo.tgbotapi.types.buttons.InlineKeyboardButtons.CallbackDataInlineKeyboardButton
 import dev.inmo.tgbotapi.types.chat.GroupChat
@@ -134,8 +134,8 @@ private suspend fun TelegramBot.createVerification(dao: JoinRequestDao, chat: Pu
         text = language.privateVerifyMessage.format(user.fullNameMention, dao.timeout),
         parseMode = MarkdownV2,
         protectContent = true,
-        replyMarkup = inlineKeyboard {
-            row { webAppButton(language.startVerify, config.webApiUrl + "/captcha/?token=$token") }
+        replyMarkup = flatInlineKeyboard {
+            webAppButton(language.startVerify, config.webApiUrl + "/captcha/?token=$token")
         }
     )
     val groupVerifyMessage = sendTextMessage(
@@ -143,12 +143,8 @@ private suspend fun TelegramBot.createVerification(dao: JoinRequestDao, chat: Pu
         text = Constants.groupVerifyMessage.format(user.fullNameMention.masked(dao)),
         parseMode = MarkdownV2,
         replyMarkup = inlineKeyboard {
-            row {
-                +CallbackDataInlineKeyboardButton(Constants.manualPass, ManualPassCallback.encode(token))
-            }
-            row {
-                +CallbackDataInlineKeyboardButton(Constants.manualDecline, ManualDeclineCallback.encode(token))
-            }
+            +CallbackDataInlineKeyboardButton(Constants.manualPass, ManualPassCallback.encode(token))
+            +CallbackDataInlineKeyboardButton(Constants.manualDecline, ManualDeclineCallback.encode(token))
         }
     )
 
