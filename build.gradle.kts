@@ -31,7 +31,7 @@ kotlin {
 
     @Suppress("UNUSED_VARIABLE")
     sourceSets {
-        val telegramBotApi = "3.3.0"
+        val telegramBotApi = "4.0.0"
         val exposedVersion = "0.40.1"
         val ktorVersion = "2.1.3"
 
@@ -51,14 +51,11 @@ kotlin {
 
         val jvmMain by getting {
             dependencies {
-                implementation("com.gitlab.AuroraOSS:gplayapi:0e224071")
-                implementation("com.squareup.okhttp3:okhttp-tls:4.10.0")
                 implementation("dev.inmo:tgbotapi:$telegramBotApi")
-                implementation("dev.inmo:micro_utils.ktor.server:0.12.1")
                 implementation("io.github.microutils:kotlin-logging-jvm:2.1.23")
                 implementation("io.ktor:ktor-client-okhttp-jvm:$ktorVersion")
                 implementation("io.ktor:ktor-server-netty-jvm:$ktorVersion")
-                implementation("io.ktor:ktor-websockets:$ktorVersion")
+                implementation("io.ktor:ktor-server-websockets:$ktorVersion")
                 implementation("org.jetbrains.exposed:exposed-core:$exposedVersion")
                 implementation("org.jetbrains.exposed:exposed-dao:$exposedVersion")
                 implementation("org.jetbrains.exposed:exposed-jdbc:$exposedVersion")

@@ -26,8 +26,6 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 import mu.KotlinLogging
-import okhttp3.tls.HandshakeCertificates
-import okhttp3.tls.decodeCertificatePem
 import org.jetbrains.exposed.exceptions.ExposedSQLException
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.Slf4jSqlDebugLogger
@@ -39,17 +37,7 @@ import java.time.Duration
 
 val config = Json.decodeFromString<Config>(File("data/config.json").readText())
 
-val commonHttpClient = HttpClient(OkHttp) {
-    engine {
-        config {
-            val certificates = HandshakeCertificates.Builder()
-                .addPlatformTrustedCertificates()
-                .addTrustedCertificate(File(config.certFile).readText().decodeCertificatePem())
-                .build()
-            sslSocketFactory(certificates.sslSocketFactory(), certificates.trustManager)
-        }
-    }
-}
+val commonHttpClient = HttpClient(OkHttp)
 
 val proxiedHttpClient = HttpClient(OkHttp) {
     engine {
@@ -70,8 +58,8 @@ private fun initDatabase() {
 @OptIn(RiskFeature::class)
 suspend fun main() {
     initDatabase()
-    val telegramBotAPIUrlsKeeper = TelegramAPIUrlsKeeper(config.token, config.botApiUrl)
-    val bot = telegramBot(telegramBotAPIUrlsKeeper, commonHttpClient)
+    val telegramBotAPIUrlsKeeper = TelegramAPIUrlsKeeper(config.token)
+    val bot = telegramBot(telegramBotAPIUrlsKeeper, proxiedHttpClient)
     logger.info("Bot start")
 
     embeddedServer(Netty, port = config.serverPort, host = "localhost") {
@@ -101,12 +89,12 @@ suspend fun main() {
         logger.info(botSelf.toString())
 
         onCommand("start") {
-            sendMessage(it.chat, Constants.help)
+            sendMessage(it.chat, Messages.help)
         }
 
         onCommandWithArgs("sql") { msg, args ->
-            if (msg.from?.id?.chatId != config.admin) {
-                sendMessage(msg.chat, Constants.notOwner)
+            if (msg.from?.id?.chatId != config.owner) {
+                sendMessage(msg.chat, Messages.cmdOwnerOnly)
                 return@onCommandWithArgs
             }
             val cmd = args.joinToString(" ")
@@ -145,6 +133,5 @@ suspend fun main() {
 
         installCS408()
         installJoinRequestVerification()
-        installTwiFucker()
     }.join()
 }

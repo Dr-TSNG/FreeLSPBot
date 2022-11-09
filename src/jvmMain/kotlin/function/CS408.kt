@@ -1,6 +1,6 @@
 package function
 
-import Constants
+import Messages
 import config
 import dev.inmo.tgbotapi.extensions.api.send.media.sendPhoto
 import dev.inmo.tgbotapi.extensions.api.send.polls.sendQuizPoll
@@ -10,6 +10,7 @@ import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onComman
 import dev.inmo.tgbotapi.extensions.utils.extensions.raw.from
 import dev.inmo.tgbotapi.requests.abstracts.InputFile
 import dev.inmo.tgbotapi.utils.RiskFeature
+import dev.inmo.tgbotapi.utils.extensions.threadIdOrNull
 import logger
 import plugin.CS408
 import util.BotUtils.detailName
@@ -20,18 +21,17 @@ suspend fun installCS408() {
     onCommand("qb") {
         logger.debug("/qb command from ${it.from?.detailName}")
         val (bankSize, poolSize) = CS408.getBankStatus()
-        sendMessage(it.chat, String.format(Constants.questionBankStatus, bankSize, poolSize))
+        sendMessage(it.chat, Messages.cs408PoolStatus(bankSize, poolSize), threadId = it.threadIdOrNull)
     }
 
     onCommand("rqb") {
-        val user = it.from ?: return@onCommand
-        logger.debug("/rqb command from ${user.detailName}")
-        if (user.id.chatId != config.admin) {
-            sendMessage(it.chat, Constants.notOwner)
+        logger.debug("/rqb command from ${it.from?.detailName}")
+        if (it.from?.id?.chatId != config.owner) {
+            sendMessage(it.chat, Messages.cmdOwnerOnly, threadId = it.threadIdOrNull)
         } else {
             CS408.refreshPool()
             val (bankSize, _) = CS408.getBankStatus()
-            sendMessage(it.chat, String.format(Constants.refreshQuestionBank, bankSize))
+            sendMessage(it.chat, Messages.cs408RefreshPool(bankSize), threadId = it.threadIdOrNull)
         }
     }
 
@@ -39,11 +39,11 @@ suspend fun installCS408() {
         logger.debug("/rq command from ${it.from?.detailName}")
         runCatching {
             val (photo, ans) = CS408.pickUp()
-            sendPhoto(it.chat, InputFile(photo))
-            sendQuizPoll(it.chat, "选择正确的选项", listOf("A", "B", "C", "D"), ans[0] - 'A', false)
+            sendPhoto(it.chat, InputFile(photo), threadId = it.threadIdOrNull)
+            sendQuizPoll(it.chat, "选择正确的选项", listOf("A", "B", "C", "D"), ans[0] - 'A', false, threadId = it.threadIdOrNull)
         }.onFailure { e ->
             logger.error("/rq command error!", e)
-            sendMessage(it.chat, Constants.errorOccurred(e))
+            sendMessage(it.chat, Messages.errorOccurred(e), threadId = it.threadIdOrNull)
         }
     }
 
@@ -51,11 +51,11 @@ suspend fun installCS408() {
         logger.debug("/rqa command from ${it.from?.detailName}")
         runCatching {
             val (photo, ans) = CS408.pickUp()
-            sendPhoto(it.chat, InputFile(photo))
-            sendQuizPoll(it.chat, "选择正确的选项", listOf("A", "B", "C", "D"), ans[0] - 'A', true)
+            sendPhoto(it.chat, InputFile(photo), threadId = it.threadIdOrNull)
+            sendQuizPoll(it.chat, "选择正确的选项", listOf("A", "B", "C", "D"), ans[0] - 'A', true, threadId = it.threadIdOrNull)
         }.onFailure { e ->
             logger.error("/rqa command error!", e)
-            sendMessage(it.chat, Constants.errorOccurred(e))
+            sendMessage(it.chat, Messages.errorOccurred(e), threadId = it.threadIdOrNull)
         }
     }
 }

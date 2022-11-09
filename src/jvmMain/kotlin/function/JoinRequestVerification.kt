@@ -1,8 +1,6 @@
 package function
 
-import Chinese
-import Constants
-import English
+import Messages
 import WebAppDataWrapper
 import botSelf
 import config
@@ -10,7 +8,6 @@ import database.CommonChatsTable
 import database.JoinRequestDao
 import database.LogDao
 import dev.inmo.tgbotapi.bot.TelegramBot
-import dev.inmo.tgbotapi.extensions.api.chat.get.getChatAdministrators
 import dev.inmo.tgbotapi.extensions.api.chat.invite_links.approveChatJoinRequest
 import dev.inmo.tgbotapi.extensions.api.chat.invite_links.declineChatJoinRequest
 import dev.inmo.tgbotapi.extensions.api.chat.members.banChatMember
@@ -25,14 +22,15 @@ import dev.inmo.tgbotapi.extensions.utils.extensions.raw.from
 import dev.inmo.tgbotapi.extensions.utils.types.buttons.flatInlineKeyboard
 import dev.inmo.tgbotapi.extensions.utils.types.buttons.inlineKeyboard
 import dev.inmo.tgbotapi.extensions.utils.types.buttons.webAppButton
+import dev.inmo.tgbotapi.types.MessageThreadId
 import dev.inmo.tgbotapi.types.buttons.InlineKeyboardButtons.CallbackDataInlineKeyboardButton
 import dev.inmo.tgbotapi.types.chat.GroupChat
-import dev.inmo.tgbotapi.types.chat.PublicChat
 import dev.inmo.tgbotapi.types.chat.User
 import dev.inmo.tgbotapi.types.message.MarkdownV2
 import dev.inmo.tgbotapi.types.message.abstracts.Message
 import dev.inmo.tgbotapi.utils.RiskFeature
 import dev.inmo.tgbotapi.utils.TelegramAPIUrlsKeeper
+import dev.inmo.tgbotapi.utils.extensions.threadIdOrNull
 import io.ktor.server.http.content.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
@@ -65,8 +63,8 @@ private class Verification(
     val dao: JoinRequestDao,
     val token: String,
     val user: User,
-    val chat: PublicChat,
-    val language: Constants,
+    val group: GroupChat,
+    val language: Messages.Private,
     val easyMode: Boolean,
     val privateVerifyMessage: Message,
     val groupVerifyMessage: Message
@@ -100,19 +98,19 @@ private enum class JRLogMessage {
 
 private val userPending = ConcurrentHashMap<String, Verification>()
 
-private fun log(chat: PublicChat, user: User, message: JRLogMessage, admin: User? = null) {
+private fun log(group: GroupChat, user: User, message: JRLogMessage, admin: User? = null) {
     transaction {
         LogDao.new {
             this.type = "JOIN_REQUEST"
             this.date = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
-            this.chat = chat.id.chatId
+            this.chat = group.id.chatId
             this.user = user.id.chatId
             this.admin = admin?.id?.chatId
             this.level = "info"
             this.message = message.name
         }
     }
-    logger.info("Join request: chat ${chat.detailName} ${user.detailName} type $message")
+    logger.info("Join request: chat ${group.detailName} ${user.detailName} type $message")
 }
 
 private infix fun String.masked(dao: JoinRequestDao) = when {
@@ -122,46 +120,52 @@ private infix fun String.masked(dao: JoinRequestDao) = when {
     else -> first() + "▓▓▓▓" + last()
 }
 
-private suspend fun TelegramBot.createVerification(dao: JoinRequestDao, chat: PublicChat, user: User, easyMode: Boolean) {
-    log(chat, user, JRLogMessage.CREATE)
+private suspend fun TelegramBot.createVerification(dao: JoinRequestDao, group: GroupChat, user: User, easyMode: Boolean) {
+    log(group, user, JRLogMessage.CREATE)
     var token: String
     do {
         token = StringUtils.getRandomString(16)
     } while (userPending.containsKey(token))
-    val language = if (user.isChinese) Chinese else English
+    val language = if (user.isChinese) Messages.Chinese else Messages.English
     val privateVerifyMessage = sendTextMessage(
         chat = user,
-        text = language.privateVerifyMessage.format(user.fullNameMention, dao.timeout),
+        text = language.verifyDesc(user.fullNameMention, dao.timeout),
         parseMode = MarkdownV2,
         protectContent = true,
         replyMarkup = flatInlineKeyboard {
-            webAppButton(language.startVerify, config.webApiUrl + "/captcha/?token=$token")
+            webAppButton(language.verifyStart, config.webApiUrl + "/captcha/?token=$token")
         }
     )
     val groupVerifyMessage = sendTextMessage(
-        chat = chat,
-        text = Constants.groupVerifyMessage.format(user.fullNameMention.masked(dao)),
+        chat = group,
+        threadId = dao.logThread,
+        text = Messages.verifyNew(user.fullNameMention.masked(dao)),
         parseMode = MarkdownV2,
         replyMarkup = inlineKeyboard {
-            +CallbackDataInlineKeyboardButton(Constants.manualPass, ManualPassCallback.encode(token))
-            +CallbackDataInlineKeyboardButton(Constants.manualDecline, ManualDeclineCallback.encode(token))
+            +CallbackDataInlineKeyboardButton(Messages.verifyManualAccept, ManualPassCallback.encode(token))
+            +CallbackDataInlineKeyboardButton(Messages.verifyManualDecline, ManualDeclineCallback.encode(token))
         }
     )
 
     userPending[token] = Verification(
-        dao, token, user, chat, language,
+        dao, token, user, group, language,
         easyMode, privateVerifyMessage, groupVerifyMessage
     ).also {
         it.scope.launch {
             delay(Duration.parse(dao.timeout))
             it.mutex.withLock {
                 if (!userPending.containsKey(token)) return@withLock
-                log(chat, user, JRLogMessage.TIMEOUT)
-                runCatching { declineChatJoinRequest(chat, user) }
+                log(group, user, JRLogMessage.TIMEOUT)
+                runCatching { declineChatJoinRequest(group, user) }
                 transaction { dao.total++ }
-                kickUser(chat, user, dao.fail2ban)
-                sendTextMessage(user, language.failVerifyPrivate.format(dao.fail2ban))
-                sendAutoDeleteMessage(chat, Constants.failVerifyGroup.format(user.fullNameMention.masked(dao)), parseMode = MarkdownV2)
+                kickUser(group, user, dao.fail2ban)
+                sendTextMessage(user, language.verifyFailed(dao.fail2ban))
+                sendAutoDeleteMessage(
+                    chat = group,
+                    threadId = dao.logThread,
+                    text = Messages.verifyFailed(user.fullNameMention.masked(dao)),
+                    parseMode = MarkdownV2
+                )
                 it.doClean(this@createVerification)
             }
         }
@@ -169,15 +173,15 @@ private suspend fun TelegramBot.createVerification(dao: JoinRequestDao, chat: Pu
 }
 
 private suspend fun TelegramBot.getDaoOrSendError(msg: Message): JoinRequestDao? {
-    if (msg.chat !is PublicChat) {
-        sendTextMessage(msg.chat, Constants.groupOnly)
+    if (msg.chat !is GroupChat) {
+        sendTextMessage(msg.chat, Messages.cmdGroupOnly, threadId = msg.threadIdOrNull)
         return null
     }
     val dao = transaction {
         JoinRequestDao.findById(msg.chat.id.chatId)
     }
     if (dao == null) {
-        sendAutoDeleteMessage(msg.chat, Constants.groupNotInWhiteList)
+        sendAutoDeleteMessage(msg.chat, Messages.cmdGroupNotInWhiteList, threadId = msg.threadIdOrNull)
         return null
     }
     return dao
@@ -234,26 +238,36 @@ fun Routing.configureJoinRequestRouting(
                         }
 
                         "Success" -> {
-                            log(chat, user, JRLogMessage.PASS)
+                            log(group, user, JRLogMessage.PASS)
                             close(CloseReason(CloseReason.Codes.NORMAL, "Verification successful"))
-                            runCatching { bot.approveChatJoinRequest(chat, user) }
+                            runCatching { bot.approveChatJoinRequest(group, user) }
                             transaction {
                                 dao.total++
                                 dao.accepted++
                             }
-                            bot.sendTextMessage(user, language.passVerifyPrivate)
-                            bot.sendTextMessage(chat, Constants.passVerifyGroup.format(user.fullNameMention), parseMode = MarkdownV2)
+                            bot.sendTextMessage(user, language.verifyPassed)
+                            bot.sendTextMessage(
+                                chat = group,
+                                threadId = dao.logThread,
+                                text = Messages.verifyPassed(user.fullNameMention),
+                                parseMode = MarkdownV2
+                            )
                             doClean(bot)
                         }
 
                         "Failure" -> {
-                            log(chat, user, JRLogMessage.FAIL)
+                            log(group, user, JRLogMessage.FAIL)
                             close(CloseReason(CloseReason.Codes.NORMAL, "Verification failed"))
-                            runCatching { bot.declineChatJoinRequest(chat, user) }
+                            runCatching { bot.declineChatJoinRequest(group, user) }
                             transaction { dao.total++ }
-                            bot.kickUser(chat, user, dao.fail2ban)
-                            bot.sendTextMessage(user, language.failVerifyPrivate.format(dao.fail2ban))
-                            bot.sendAutoDeleteMessage(chat, Constants.failVerifyGroup.format(user.fullNameMention.masked(dao)), parseMode = MarkdownV2)
+                            bot.kickUser(group, user, dao.fail2ban)
+                            bot.sendTextMessage(user, language.verifyFailed(dao.fail2ban))
+                            bot.sendAutoDeleteMessage(
+                                chat = group,
+                                threadId = dao.logThread,
+                                text = Messages.verifyFailed(user.fullNameMention.masked(dao)),
+                                parseMode = MarkdownV2
+                            )
                             doClean(bot)
                         }
                     }
@@ -266,83 +280,93 @@ fun Routing.configureJoinRequestRouting(
 context(BehaviourContext)
 @OptIn(RiskFeature::class)
 suspend fun installJoinRequestVerification() {
-    suspend fun checkAdminCanChangeInfo(group: PublicChat, user: User?): Boolean {
+    suspend fun checkAdminCanChangeInfo(group: GroupChat, threadId: MessageThreadId?, user: User?): Boolean {
         val admin = getGroupAdmin(group, user) { it.canChangeInfo }
         if (admin == null) {
-            sendTextMessage(group, Constants.adminRequired.format("CanChangeInfo"))
+            sendTextMessage(group, Messages.cmdAdminRequired("CanChangeInfo"), threadId = threadId)
             return false
         }
         return true
     }
 
-    suspend fun checkOnOff(cmd: String, msg: Message, args: Array<String>, transaction: (JoinRequestDao, Boolean) -> Unit) {
-        val dao = getDaoOrSendError(msg) ?: return
-        val group = msg.chat as GroupChat
-        if (!checkAdminCanChangeInfo(group, msg.from)) return
-        if (args.size != 1 || (args[0] != "on" && args[0] != "off")) {
-            sendTextMessage(group, Constants.invalidCommand)
-            return
-        }
-        val ctl = args[0] == "on"
-        transaction { transaction(dao, ctl) }
-        logger.info("Group ${group.detailName} changed join request verification $cmd to $ctl")
-        sendTextMessage(msg.chat, Constants.setSuccessful)
-    }
-
     onCommandWithArgs("jrctl") { msg, args ->
-        checkOnOff("enabled", msg, args) { dao, ctl ->
-            dao.enabled = ctl
+        val dao = getDaoOrSendError(msg) ?: return@onCommandWithArgs
+        val group = msg.chat as GroupChat
+        if (!checkAdminCanChangeInfo(group, msg.threadIdOrNull, msg.from)) return@onCommandWithArgs
+        if (args.size == 1 && (args[0] == "on" || args[0] == "off")) {
+            transaction { dao.enabled = args[0] == "on" }
+            logger.info("Group ${group.detailName} set jrctl to ${args[0]}")
+            sendTextMessage(group, if (dao.enabled) Messages.verifyEnabled else Messages.verifyDisabled, threadId = msg.threadIdOrNull)
+        } else {
+            sendTextMessage(group, Messages.cmdIllegalArgument, threadId = msg.threadIdOrNull)
         }
     }
 
     onCommand("jr_info") { msg ->
         val dao = getDaoOrSendError(msg) ?: return@onCommand
-        sendTextMessage(msg.chat, Constants.joinRequestSettings.format(dao.enabled.toString(), dao.method, dao.timeout, dao.fail2ban, dao.regexBan ?: "未启用"))
+        sendTextMessage(
+            chat = msg.chat,
+            threadId = msg.threadIdOrNull,
+            text = Messages.verifySettings(dao.enabled, dao.timeout, dao.fail2ban, dao.regexBan ?: "未启用")
+        )
     }
 
     onCommand("jr_statistics") { msg ->
         val dao = getDaoOrSendError(msg) ?: return@onCommand
-        sendTextMessage(msg.chat, Constants.joinRequestStatistics.format(dao.total, dao.accepted, 100.0 * dao.accepted / dao.total))
+        sendTextMessage(
+            chat = msg.chat,
+            threadId = msg.threadIdOrNull,
+            text = Messages.verifyStatistics(dao.total, dao.accepted)
+        )
     }
 
     onCommandWithArgs("jr_timeout") { msg, args ->
         val dao = getDaoOrSendError(msg) ?: return@onCommandWithArgs
         val group = msg.chat as GroupChat
-        if (!checkAdminCanChangeInfo(group, msg.from)) return@onCommandWithArgs
-        if (args.size != 1 || (Duration.parseOrNull(args[0])?.inWholeSeconds ?: 0) <= 60) {
-            sendTextMessage(msg.chat, Constants.invalidCommand)
-        } else {
+        if (!checkAdminCanChangeInfo(group, msg.threadIdOrNull, msg.from)) return@onCommandWithArgs
+        val time = Duration.parseOrNull(args[0])?.inWholeSeconds ?: 0
+        if (args.size == 1 && time in 60..3600) {
             transaction { dao.timeout = args[0] }
-            logger.info("Group ${group.detailName} changed join request verification timeout to ${args[0]}")
-            sendTextMessage(group, Constants.setSuccessful)
+            logger.info("Group ${group.detailName} set jr_timeout to ${args[0]}")
+            sendTextMessage(group, Messages.verifySetTimeout(args[0]), threadId = msg.threadIdOrNull)
+        } else {
+            sendTextMessage(msg.chat, Messages.verifyTimeoutLimit, threadId = msg.threadIdOrNull)
         }
     }
 
     onCommandWithArgs("jr_fail2ban") { msg, args ->
         val dao = getDaoOrSendError(msg) ?: return@onCommandWithArgs
         val group = msg.chat as GroupChat
-        if (!checkAdminCanChangeInfo(group, msg.from)) return@onCommandWithArgs
-        if (args.size != 1 || (Duration.parseOrNull(args[0])?.inWholeSeconds ?: 0) <= 60) {
-            sendTextMessage(msg.chat, Constants.invalidCommand)
-        } else {
+        if (!checkAdminCanChangeInfo(group, msg.threadIdOrNull, msg.from)) return@onCommandWithArgs
+        val time = Duration.parseOrNull(args[0])?.inWholeSeconds ?: 0
+        if (args.size == 1 && time >= 60) {
             transaction { dao.fail2ban = args[0] }
-            logger.info("Group ${group.detailName} changed join request verification fail2ban to ${args[0]}")
-            sendTextMessage(group, Constants.setSuccessful)
+            logger.info("Group ${group.detailName} set jr_fail2ban to ${args[0]}")
+            sendTextMessage(group, Messages.verifySetFail2Ban(args[0]), threadId = msg.threadIdOrNull)
+        } else {
+            sendTextMessage(msg.chat, Messages.verifyFail2BanLimit, threadId = msg.threadIdOrNull)
         }
     }
 
     onCommandWithArgs("jr_namemask") { msg, args ->
-        checkOnOff("name_mask", msg, args) { dao, ctl ->
-            dao.nameMask = ctl
+        val dao = getDaoOrSendError(msg) ?: return@onCommandWithArgs
+        val group = msg.chat as GroupChat
+        if (!checkAdminCanChangeInfo(group, msg.threadIdOrNull, msg.from)) return@onCommandWithArgs
+        if (args.size == 1 && (args[0] == "on" || args[0] == "off")) {
+            transaction { dao.nameMask = args[0] == "on" }
+            logger.info("Group ${group.detailName} set jr_namemask to ${args[0]}")
+            sendTextMessage(group, if (dao.enabled) Messages.verifyNameMaskEnabled else Messages.verifyNameMaskDisabled, threadId = msg.threadIdOrNull)
+        } else {
+            sendTextMessage(group, Messages.cmdIllegalArgument, threadId = msg.threadIdOrNull)
         }
     }
 
     onCommandWithArgs("jr_regexban") { msg, args ->
         val dao = getDaoOrSendError(msg) ?: return@onCommandWithArgs
         val group = msg.chat as GroupChat
-        if (!checkAdminCanChangeInfo(group, msg.from)) return@onCommandWithArgs
+        if (!checkAdminCanChangeInfo(group, msg.threadIdOrNull, msg.from)) return@onCommandWithArgs
         if (args.size != 1) {
-            sendTextMessage(msg.chat, Constants.invalidCommand)
+            sendTextMessage(msg.chat, Messages.cmdIllegalArgument, threadId = msg.threadIdOrNull)
         } else {
             if (args[0] == "off") {
                 transaction { dao.regexBan = null }
@@ -350,33 +374,48 @@ suspend fun installJoinRequestVerification() {
                 try {
                     args[0].toRegex()
                 } catch (e: PatternSyntaxException) {
-                    sendTextMessage(msg.chat, Constants.invalidRegex)
+                    sendTextMessage(msg.chat, Messages.verifyRegexInvalid, threadId = msg.threadIdOrNull)
                     return@onCommandWithArgs
                 }
                 transaction { dao.regexBan = args[0] }
             }
-            logger.info("Group ${group.detailName} changed join request verification regex_ban to ${dao.regexBan}")
-            sendTextMessage(group, Constants.setSuccessful)
+            logger.info("Group ${group.detailName} set jr_regexban to ${dao.regexBan}")
+            sendTextMessage(group, Messages.verifySetRegexBan(args[0]), threadId = msg.threadIdOrNull)
+        }
+    }
+
+    onCommandWithArgs("jr_logthread") { msg, args ->
+        val dao = getDaoOrSendError(msg) ?: return@onCommandWithArgs
+        val group = msg.chat as GroupChat
+        if (!checkAdminCanChangeInfo(group, msg.threadIdOrNull, msg.from)) return@onCommandWithArgs
+        val threadId = args[0].toLongOrNull()
+        if (args.size == 1 && threadId != null) {
+            transaction { dao.logThread = if (threadId == 0L) null else threadId }
+            logger.info("Group ${group.detailName} set jr_logthread to ${args[0]}")
+            sendTextMessage(group, Messages.verifySetLogThread(threadId), threadId = msg.threadIdOrNull)
+        } else {
+            sendTextMessage(msg.chat, Messages.cmdIllegalArgument, threadId = msg.threadIdOrNull)
         }
     }
 
     onChatJoinRequest(
         initialFilter = { req ->
-            getChatAdministrators(req.chat).any {
-                it.user.id == botSelf.id && it.canInviteUsers && it.canRestrictMembers
-            } && userPending.none { it.value.chat.id.chatId == req.chat.id.chatId && it.value.user.id.chatId == req.user.id.chatId }
+            val group = req.chat as? GroupChat ?: return@onChatJoinRequest false
+            val hasAdmin = getGroupAdmin(group, botSelf) { it.canInviteUsers && it.canRestrictMembers } != null
+            hasAdmin && userPending.none { it.value.group.id.chatId == group.id.chatId && it.value.user.id.chatId == req.user.id.chatId }
         }
     ) { req ->
+        val group = req.chat as GroupChat
         val dao = transaction {
-            JoinRequestDao.findById(req.chat.id.chatId)
+            JoinRequestDao.findById(group.id.chatId)
         } ?: return@onChatJoinRequest
         if (!dao.enabled) return@onChatJoinRequest
 
         if (dao.regexBan != null) {
             if (req.user.fullNameMention.matches(dao.regexBan!!.toRegex())) {
                 declineChatJoinRequest(req)
-                banChatMember(req.chat, req.user)
-                sendAutoDeleteMessage(req.chat, Constants.regexBanned.format(req.user.fullNameMention.masked(dao)))
+                banChatMember(group, req.user)
+                sendAutoDeleteMessage(group, Messages.verifyRegexBanned(req.user.fullNameMention.masked(dao)), threadId = dao.logThread)
                 return@onChatJoinRequest
             }
         }
@@ -385,26 +424,31 @@ suspend fun installJoinRequestVerification() {
         val easyMode = commonChats >= (dao.commonChatEasy ?: Byte.MAX_VALUE)
         if (commonChats < (dao.commonChatLeast ?: 0)) {
             runCatching { declineChatJoinRequest(req) }
-            log(req.chat, req.user, JRLogMessage.IGNORE)
-            sendAutoDeleteMessage(req.chat, Constants.filteredSuspiciousUser.format(req.user.fullNameMention.masked(dao)), parseMode = MarkdownV2)
+            log(group, req.user, JRLogMessage.IGNORE)
+            sendAutoDeleteMessage(group, Messages.verifyIgnored(req.user.fullNameMention.masked(dao)), parseMode = MarkdownV2, threadId = dao.logThread)
             return@onChatJoinRequest
         }
 
-        createVerification(dao, req.chat, req.user, easyMode)
+        createVerification(dao, group, req.user, easyMode)
     }
 
     onDataCallbackQuery(
         initialFilter = { ManualPassCallback.isValid(it.data) }
     ) { query ->
         val verification = ManualPassCallback.decode(query.data) ?: return@onDataCallbackQuery
-        val admin = getGroupAdmin(verification.chat, query.from) { it.canInviteUsers } ?: return@onDataCallbackQuery
+        val admin = getGroupAdmin(verification.group, query.from) { it.canInviteUsers } ?: return@onDataCallbackQuery
         with(verification) {
             mutex.withLock {
                 if (!userPending.containsKey(token)) return@withLock
-                log(chat, user, JRLogMessage.MANUAL_PASS, admin.user)
-                runCatching { approveChatJoinRequest(chat, user) }
-                sendTextMessage(user, language.manualPassPrivate)
-                sendTextMessage(chat, Constants.manualPassGroup.format(query.from.fullNameMention, user.fullNameMention), parseMode = MarkdownV2)
+                log(group, user, JRLogMessage.MANUAL_PASS, admin.user)
+                runCatching { approveChatJoinRequest(group, user) }
+                sendTextMessage(user, language.verifyManualAccepted, threadId = dao.logThread)
+                sendTextMessage(
+                    chat = group,
+                    threadId = dao.logThread,
+                    text = Messages.verifyManualAccepted(query.from.fullNameMention, user.fullNameMention),
+                    parseMode = MarkdownV2
+                )
                 doClean(this@onDataCallbackQuery)
             }
         }
@@ -414,14 +458,19 @@ suspend fun installJoinRequestVerification() {
         initialFilter = { ManualDeclineCallback.isValid(it.data) }
     ) { query ->
         val verification = ManualDeclineCallback.decode(query.data) ?: return@onDataCallbackQuery
-        val admin = getGroupAdmin(verification.chat, query.from) { it.canRestrictMembers } ?: return@onDataCallbackQuery
+        val admin = getGroupAdmin(verification.group, query.from) { it.canRestrictMembers } ?: return@onDataCallbackQuery
         with(verification) {
             mutex.withLock {
                 if (!userPending.containsKey(token)) return@withLock
-                log(chat, user, JRLogMessage.MANUAL_DECLINE, admin.user)
-                runCatching { declineChatJoinRequest(chat, user) }
-                bot.banChatMember(chat, user)
-                sendAutoDeleteMessage(chat, Constants.manualDeclineGroup.format(query.from.fullNameMention, user.fullNameMention.masked(dao)), parseMode = MarkdownV2)
+                log(group, user, JRLogMessage.MANUAL_DECLINE, admin.user)
+                runCatching { declineChatJoinRequest(group, user) }
+                bot.banChatMember(group, user)
+                sendAutoDeleteMessage(
+                    chat = group,
+                    threadId = dao.logThread,
+                    text = Messages.verifyManualDeclined(query.from.fullNameMention, user.fullNameMention.masked(dao)),
+                    parseMode = MarkdownV2
+                )
                 doClean(this@onDataCallbackQuery)
             }
         }

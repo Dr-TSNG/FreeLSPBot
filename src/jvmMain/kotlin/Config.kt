@@ -8,11 +8,9 @@ data class Config(
     val database: String,
     val dbUsername: String,
     val dbPassword: String,
-    val botApiUrl: String,
     val webApiUrl: String,
-    val certFile: String,
     val token: String,
-    val admin: Long,
+    val owner: Long,
     val captchaApiUrl: String,
     val captchaApiKey: String
 )

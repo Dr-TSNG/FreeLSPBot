@@ -10,8 +10,10 @@ import dev.inmo.tgbotapi.extensions.api.deleteMessage
 import dev.inmo.tgbotapi.extensions.api.send.sendMessage
 import dev.inmo.tgbotapi.extensions.utils.asWithOptionalLanguageCode
 import dev.inmo.tgbotapi.types.MessageIdentifier
+import dev.inmo.tgbotapi.types.MessageThreadId
 import dev.inmo.tgbotapi.types.buttons.KeyboardMarkup
 import dev.inmo.tgbotapi.types.chat.Chat
+import dev.inmo.tgbotapi.types.chat.GroupChat
 import dev.inmo.tgbotapi.types.chat.PublicChat
 import dev.inmo.tgbotapi.types.chat.User
 import dev.inmo.tgbotapi.types.chat.member.AdministratorChatMember
@@ -68,7 +70,7 @@ object BotUtils {
     }
 
     suspend fun TelegramBot.getGroupAdmin(
-        chat: PublicChat,
+        chat: GroupChat,
         user: User?,
         filter: (AdministratorChatMember) -> Boolean = { true }
     ): AdministratorChatMember? {
@@ -82,6 +84,7 @@ object BotUtils {
         text: String,
         parseMode: ParseMode? = null,
         disableWebPagePreview: Boolean? = null,
+        threadId: MessageThreadId? = null,
         disableNotification: Boolean = false,
         protectContent: Boolean = false,
         replyToMessageId: MessageIdentifier? = null,
@@ -90,7 +93,7 @@ object BotUtils {
     ) {
         val msg = sendMessage(
             chat, text, parseMode,
-            disableWebPagePreview, disableNotification,
+            disableWebPagePreview, threadId, disableNotification,
             protectContent, replyToMessageId, allowSendingWithoutReply, replyMarkup
         )
         CoroutineScope(Dispatchers.Default).launch {
