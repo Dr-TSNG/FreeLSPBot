@@ -21,6 +21,7 @@ import dev.inmo.tgbotapi.types.message.ParseMode
 import dev.inmo.tgbotapi.types.message.textsources.mention
 import dev.inmo.tgbotapi.types.toTelegramDate
 import dev.inmo.tgbotapi.utils.PreviewFeature
+import dev.inmo.tgbotapi.utils.extensions.escapeMarkdownV2Common
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -31,12 +32,14 @@ import kotlin.time.DurationUnit
 
 object BotUtils {
 
-    val User.fullNameMention: String
-        get() {
-            val combineName = "$firstName $lastName".trim()
-            return if (username == null) combineName
-            else mention(combineName, this).markdownV2
-        }
+    fun User.fullNameMention(mask: Boolean = false): String {
+        val combineName = "$firstName $lastName".trim()
+        val len = combineName.length
+        val maskedName = if (!mask || len == 1) combineName else combineName.replaceRange(1, len - 1, "▓")
+        val escaped = maskedName.escapeMarkdownV2Common()
+        return if (username == null) escaped
+        else mention(escaped, this).markdownV2
+    }
 
     val User.detailName: String
         get() = buildString {

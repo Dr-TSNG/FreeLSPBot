@@ -111,13 +111,6 @@ private fun log(group: GroupChat, user: User, message: JRLogMessage, admin: User
     logger.info("Join request: chat ${group.detailName} ${user.detailName} type $message")
 }
 
-private infix fun String.masked(dao: JoinRequestDao) = when {
-    !dao.nameMask -> this
-    length == 1 -> this
-    length < 5 -> replaceRange(1, length - 1, "▓")
-    else -> first() + "▓▓▓▓" + last()
-}
-
 private suspend fun TelegramBot.createVerification(dao: JoinRequestDao, group: GroupChat, user: User, easyMode: Boolean) {
     log(group, user, JRLogMessage.CREATE)
     var token: String
@@ -127,7 +120,7 @@ private suspend fun TelegramBot.createVerification(dao: JoinRequestDao, group: G
     val language = if (user.isChinese) Messages.Chinese else Messages.English
     val privateVerifyMessage = sendTextMessage(
         chat = user,
-        text = language.verifyDesc(user.fullNameMention, dao.timeout),
+        text = language.verifyDesc(user.fullNameMention(), dao.timeout),
         parseMode = MarkdownV2,
         protectContent = true,
         replyMarkup = flatInlineKeyboard {
@@ -137,7 +130,7 @@ private suspend fun TelegramBot.createVerification(dao: JoinRequestDao, group: G
     val groupVerifyMessage = sendTextMessage(
         chat = group,
         threadId = dao.logThread,
-        text = Messages.verifyNew(user.fullNameMention.masked(dao)),
+        text = Messages.verifyNew(user.fullNameMention(dao.nameMask)),
         parseMode = MarkdownV2,
         replyMarkup = inlineKeyboard {
             +CallbackDataInlineKeyboardButton(Messages.verifyManualAccept, ManualPassCallback.encode(token))
@@ -161,7 +154,7 @@ private suspend fun TelegramBot.createVerification(dao: JoinRequestDao, group: G
                 sendAutoDeleteMessage(
                     chat = group,
                     threadId = dao.logThread,
-                    text = Messages.verifyFailed(user.fullNameMention.masked(dao)),
+                    text = Messages.verifyFailed(user.fullNameMention(dao.nameMask)),
                     parseMode = MarkdownV2
                 )
                 it.doClean(this@createVerification)
@@ -247,7 +240,7 @@ fun Routing.configureJoinRequestRouting(
                             bot.sendTextMessage(
                                 chat = group,
                                 threadId = dao.logThread,
-                                text = Messages.verifyPassed(user.fullNameMention),
+                                text = Messages.verifyPassed(user.fullNameMention()),
                                 parseMode = MarkdownV2
                             )
                             doClean(bot)
@@ -263,7 +256,7 @@ fun Routing.configureJoinRequestRouting(
                             bot.sendAutoDeleteMessage(
                                 chat = group,
                                 threadId = dao.logThread,
-                                text = Messages.verifyFailed(user.fullNameMention.masked(dao)),
+                                text = Messages.verifyFailed(user.fullNameMention(dao.nameMask)),
                                 parseMode = MarkdownV2
                             )
                             doClean(bot)
@@ -408,10 +401,10 @@ suspend fun installJoinRequestVerification() {
         if (!dao.enabled) return@onChatJoinRequest
 
         if (dao.regexBan != null) {
-            if (req.user.fullNameMention.matches(dao.regexBan!!.toRegex())) {
+            if (req.user.fullNameMention().matches(dao.regexBan!!.toRegex())) {
                 declineChatJoinRequest(req)
                 banChatMember(group, req.user)
-                sendAutoDeleteMessage(group, Messages.verifyRegexBanned(req.user.fullNameMention.masked(dao)), threadId = dao.logThread)
+                sendAutoDeleteMessage(group, Messages.verifyRegexBanned(req.user.fullNameMention(dao.nameMask)), threadId = dao.logThread)
                 return@onChatJoinRequest
             }
         }
@@ -421,7 +414,7 @@ suspend fun installJoinRequestVerification() {
         if (commonChats < (dao.commonChatLeast ?: 0)) {
             runCatching { declineChatJoinRequest(req) }
             log(group, req.user, JRLogMessage.IGNORE)
-            sendAutoDeleteMessage(group, Messages.verifyIgnored(req.user.fullNameMention.masked(dao)), parseMode = MarkdownV2, threadId = dao.logThread)
+            sendAutoDeleteMessage(group, Messages.verifyIgnored(req.user.fullNameMention(dao.nameMask)), parseMode = MarkdownV2, threadId = dao.logThread)
             return@onChatJoinRequest
         }
 
@@ -442,7 +435,7 @@ suspend fun installJoinRequestVerification() {
                 sendTextMessage(
                     chat = group,
                     threadId = dao.logThread,
-                    text = Messages.verifyManualAccepted(query.from.fullNameMention, user.fullNameMention),
+                    text = Messages.verifyManualAccepted(query.from.fullNameMention(), user.fullNameMention()),
                     parseMode = MarkdownV2
                 )
                 doClean(this@onDataCallbackQuery)
@@ -464,7 +457,7 @@ suspend fun installJoinRequestVerification() {
                 sendAutoDeleteMessage(
                     chat = group,
                     threadId = dao.logThread,
-                    text = Messages.verifyManualDeclined(query.from.fullNameMention, user.fullNameMention.masked(dao)),
+                    text = Messages.verifyManualDeclined(query.from.fullNameMention(), user.fullNameMention(dao.nameMask)),
                     parseMode = MarkdownV2
                 )
                 doClean(this@onDataCallbackQuery)
