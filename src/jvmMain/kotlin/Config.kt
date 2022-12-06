@@ -8,6 +8,7 @@ data class Config(
     val database: String,
     val dbUsername: String,
     val dbPassword: String,
+    val botApiUrl: String,
     val webApiUrl: String,
     val token: String,
     val owner: Long,

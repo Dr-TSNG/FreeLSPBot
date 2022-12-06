@@ -22,7 +22,6 @@ import dev.inmo.tgbotapi.extensions.utils.extensions.raw.from
 import dev.inmo.tgbotapi.extensions.utils.types.buttons.flatInlineKeyboard
 import dev.inmo.tgbotapi.extensions.utils.types.buttons.inlineKeyboard
 import dev.inmo.tgbotapi.extensions.utils.types.buttons.webAppButton
-import dev.inmo.tgbotapi.types.MessageThreadId
 import dev.inmo.tgbotapi.types.buttons.InlineKeyboardButtons.CallbackDataInlineKeyboardButton
 import dev.inmo.tgbotapi.types.chat.GroupChat
 import dev.inmo.tgbotapi.types.chat.User
@@ -30,7 +29,6 @@ import dev.inmo.tgbotapi.types.message.MarkdownV2
 import dev.inmo.tgbotapi.types.message.abstracts.Message
 import dev.inmo.tgbotapi.utils.RiskFeature
 import dev.inmo.tgbotapi.utils.TelegramAPIUrlsKeeper
-import dev.inmo.tgbotapi.utils.extensions.threadIdOrNull
 import io.ktor.server.http.content.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
@@ -174,14 +172,14 @@ private suspend fun TelegramBot.createVerification(dao: JoinRequestDao, group: G
 
 private suspend fun TelegramBot.getDaoOrSendError(msg: Message): JoinRequestDao? {
     if (msg.chat !is GroupChat) {
-        sendTextMessage(msg.chat, Messages.cmdGroupOnly, threadId = msg.threadIdOrNull)
+        sendTextMessage(msg.chat, Messages.cmdGroupOnly)
         return null
     }
     val dao = transaction {
         JoinRequestDao.findById(msg.chat.id.chatId)
     }
     if (dao == null) {
-        sendAutoDeleteMessage(msg.chat, Messages.cmdGroupNotInWhiteList, threadId = msg.threadIdOrNull)
+        sendAutoDeleteMessage(msg.chat, Messages.cmdGroupNotInWhiteList)
         return null
     }
     return dao
@@ -280,10 +278,10 @@ fun Routing.configureJoinRequestRouting(
 context(BehaviourContext)
 @OptIn(RiskFeature::class)
 suspend fun installJoinRequestVerification() {
-    suspend fun checkAdminCanChangeInfo(group: GroupChat, threadId: MessageThreadId?, user: User?): Boolean {
+    suspend fun checkAdminCanChangeInfo(group: GroupChat, user: User?): Boolean {
         val admin = getGroupAdmin(group, user) { it.canChangeInfo }
         if (admin == null) {
-            sendTextMessage(group, Messages.cmdAdminRequired("CanChangeInfo"), threadId = threadId)
+            sendTextMessage(group, Messages.cmdAdminRequired("CanChangeInfo"))
             return false
         }
         return true
@@ -292,13 +290,13 @@ suspend fun installJoinRequestVerification() {
     onCommandWithArgs("jrctl") { msg, args ->
         val dao = getDaoOrSendError(msg) ?: return@onCommandWithArgs
         val group = msg.chat as GroupChat
-        if (!checkAdminCanChangeInfo(group, msg.threadIdOrNull, msg.from)) return@onCommandWithArgs
+        if (!checkAdminCanChangeInfo(group, msg.from)) return@onCommandWithArgs
         if (args.size == 1 && (args[0] == "on" || args[0] == "off")) {
             transaction { dao.enabled = args[0] == "on" }
             logger.info("Group ${group.detailName} set jrctl to ${args[0]}")
-            sendTextMessage(group, if (dao.enabled) Messages.verifyEnabled else Messages.verifyDisabled, threadId = msg.threadIdOrNull)
+            sendTextMessage(group, if (dao.enabled) Messages.verifyEnabled else Messages.verifyDisabled)
         } else {
-            sendTextMessage(group, Messages.cmdIllegalArgument, threadId = msg.threadIdOrNull)
+            sendTextMessage(group, Messages.cmdIllegalArgument)
         }
     }
 
@@ -306,7 +304,6 @@ suspend fun installJoinRequestVerification() {
         val dao = getDaoOrSendError(msg) ?: return@onCommand
         sendTextMessage(
             chat = msg.chat,
-            threadId = msg.threadIdOrNull,
             text = Messages.verifySettings(dao.enabled, dao.timeout, dao.fail2ban, dao.regexBan ?: "未启用")
         )
     }
@@ -315,7 +312,6 @@ suspend fun installJoinRequestVerification() {
         val dao = getDaoOrSendError(msg) ?: return@onCommand
         sendTextMessage(
             chat = msg.chat,
-            threadId = msg.threadIdOrNull,
             text = Messages.verifyStatistics(dao.total, dao.accepted)
         )
     }
@@ -323,50 +319,50 @@ suspend fun installJoinRequestVerification() {
     onCommandWithArgs("jr_timeout") { msg, args ->
         val dao = getDaoOrSendError(msg) ?: return@onCommandWithArgs
         val group = msg.chat as GroupChat
-        if (!checkAdminCanChangeInfo(group, msg.threadIdOrNull, msg.from)) return@onCommandWithArgs
+        if (!checkAdminCanChangeInfo(group, msg.from)) return@onCommandWithArgs
         val time = Duration.parseOrNull(args[0])?.inWholeSeconds ?: 0
         if (args.size == 1 && time in 60..3600) {
             transaction { dao.timeout = args[0] }
             logger.info("Group ${group.detailName} set jr_timeout to ${args[0]}")
-            sendTextMessage(group, Messages.verifySetTimeout(args[0]), threadId = msg.threadIdOrNull)
+            sendTextMessage(group, Messages.verifySetTimeout(args[0]))
         } else {
-            sendTextMessage(msg.chat, Messages.verifyTimeoutLimit, threadId = msg.threadIdOrNull)
+            sendTextMessage(msg.chat, Messages.verifyTimeoutLimit)
         }
     }
 
     onCommandWithArgs("jr_fail2ban") { msg, args ->
         val dao = getDaoOrSendError(msg) ?: return@onCommandWithArgs
         val group = msg.chat as GroupChat
-        if (!checkAdminCanChangeInfo(group, msg.threadIdOrNull, msg.from)) return@onCommandWithArgs
+        if (!checkAdminCanChangeInfo(group, msg.from)) return@onCommandWithArgs
         val time = Duration.parseOrNull(args[0])?.inWholeSeconds ?: 0
         if (args.size == 1 && time >= 60) {
             transaction { dao.fail2ban = args[0] }
             logger.info("Group ${group.detailName} set jr_fail2ban to ${args[0]}")
-            sendTextMessage(group, Messages.verifySetFail2Ban(args[0]), threadId = msg.threadIdOrNull)
+            sendTextMessage(group, Messages.verifySetFail2Ban(args[0]))
         } else {
-            sendTextMessage(msg.chat, Messages.verifyFail2BanLimit, threadId = msg.threadIdOrNull)
+            sendTextMessage(msg.chat, Messages.verifyFail2BanLimit)
         }
     }
 
     onCommandWithArgs("jr_namemask") { msg, args ->
         val dao = getDaoOrSendError(msg) ?: return@onCommandWithArgs
         val group = msg.chat as GroupChat
-        if (!checkAdminCanChangeInfo(group, msg.threadIdOrNull, msg.from)) return@onCommandWithArgs
+        if (!checkAdminCanChangeInfo(group, msg.from)) return@onCommandWithArgs
         if (args.size == 1 && (args[0] == "on" || args[0] == "off")) {
             transaction { dao.nameMask = args[0] == "on" }
             logger.info("Group ${group.detailName} set jr_namemask to ${args[0]}")
-            sendTextMessage(group, if (dao.enabled) Messages.verifyNameMaskEnabled else Messages.verifyNameMaskDisabled, threadId = msg.threadIdOrNull)
+            sendTextMessage(group, if (dao.enabled) Messages.verifyNameMaskEnabled else Messages.verifyNameMaskDisabled)
         } else {
-            sendTextMessage(group, Messages.cmdIllegalArgument, threadId = msg.threadIdOrNull)
+            sendTextMessage(group, Messages.cmdIllegalArgument)
         }
     }
 
     onCommandWithArgs("jr_regexban") { msg, args ->
         val dao = getDaoOrSendError(msg) ?: return@onCommandWithArgs
         val group = msg.chat as GroupChat
-        if (!checkAdminCanChangeInfo(group, msg.threadIdOrNull, msg.from)) return@onCommandWithArgs
+        if (!checkAdminCanChangeInfo(group, msg.from)) return@onCommandWithArgs
         if (args.size != 1) {
-            sendTextMessage(msg.chat, Messages.cmdIllegalArgument, threadId = msg.threadIdOrNull)
+            sendTextMessage(msg.chat, Messages.cmdIllegalArgument)
         } else {
             if (args[0] == "off") {
                 transaction { dao.regexBan = null }
@@ -374,27 +370,27 @@ suspend fun installJoinRequestVerification() {
                 try {
                     args[0].toRegex()
                 } catch (e: PatternSyntaxException) {
-                    sendTextMessage(msg.chat, Messages.verifyRegexInvalid, threadId = msg.threadIdOrNull)
+                    sendTextMessage(msg.chat, Messages.verifyRegexInvalid)
                     return@onCommandWithArgs
                 }
                 transaction { dao.regexBan = args[0] }
             }
             logger.info("Group ${group.detailName} set jr_regexban to ${dao.regexBan}")
-            sendTextMessage(group, Messages.verifySetRegexBan(args[0]), threadId = msg.threadIdOrNull)
+            sendTextMessage(group, Messages.verifySetRegexBan(args[0]))
         }
     }
 
     onCommandWithArgs("jr_logthread") { msg, args ->
         val dao = getDaoOrSendError(msg) ?: return@onCommandWithArgs
         val group = msg.chat as GroupChat
-        if (!checkAdminCanChangeInfo(group, msg.threadIdOrNull, msg.from)) return@onCommandWithArgs
+        if (!checkAdminCanChangeInfo(group, msg.from)) return@onCommandWithArgs
         val threadId = args[0].toLongOrNull()
         if (args.size == 1 && threadId != null) {
             transaction { dao.logThread = if (threadId == 0L) null else threadId }
             logger.info("Group ${group.detailName} set jr_logthread to ${args[0]}")
-            sendTextMessage(group, Messages.verifySetLogThread(threadId), threadId = msg.threadIdOrNull)
+            sendTextMessage(group, Messages.verifySetLogThread(threadId))
         } else {
-            sendTextMessage(msg.chat, Messages.cmdIllegalArgument, threadId = msg.threadIdOrNull)
+            sendTextMessage(msg.chat, Messages.cmdIllegalArgument)
         }
     }
 

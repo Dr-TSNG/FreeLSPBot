@@ -5,6 +5,7 @@ import dev.inmo.tgbotapi.extensions.behaviour_builder.buildBehaviourWithLongPoll
 import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onCommand
 import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onCommandWithArgs
 import dev.inmo.tgbotapi.extensions.utils.extensions.raw.from
+import dev.inmo.tgbotapi.extensions.utils.updates.retrieving.flushAccumulatedUpdates
 import dev.inmo.tgbotapi.types.chat.ExtendedBot
 import dev.inmo.tgbotapi.types.message.MarkdownV2
 import dev.inmo.tgbotapi.utils.RiskFeature
@@ -37,13 +38,7 @@ import java.time.Duration
 
 val config = Json.decodeFromString<Config>(File("data/config.json").readText())
 
-val commonHttpClient = HttpClient(OkHttp)
-
-val proxiedHttpClient = HttpClient(OkHttp) {
-    engine {
-        proxy = ProxyBuilder.socks(config.proxyHost, config.proxyPort)
-    }
-}
+val httpClient = HttpClient(OkHttp)
 
 val logger = KotlinLogging.logger {}
 lateinit var botSelf: ExtendedBot
@@ -58,8 +53,8 @@ private fun initDatabase() {
 @OptIn(RiskFeature::class)
 suspend fun main() {
     initDatabase()
-    val telegramBotAPIUrlsKeeper = TelegramAPIUrlsKeeper(config.token)
-    val bot = telegramBot(telegramBotAPIUrlsKeeper, proxiedHttpClient)
+    val telegramBotAPIUrlsKeeper = TelegramAPIUrlsKeeper(config.token, config.botApiUrl)
+    val bot = telegramBot(telegramBotAPIUrlsKeeper, httpClient)
     logger.info("Bot start")
 
     embeddedServer(Netty, port = config.serverPort, host = "localhost") {
@@ -71,7 +66,7 @@ suspend fun main() {
         }
     }.start(wait = false)
 
-    //bot.flushAccumulatedUpdates()
+    bot.flushAccumulatedUpdates()
     bot.buildBehaviourWithLongPolling(
         defaultExceptionsHandler = { e ->
             val ignore = listOf(

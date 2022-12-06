@@ -1,6 +1,6 @@
 package plugin
 
-import commonHttpClient
+import httpClient
 import config
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
@@ -9,7 +9,7 @@ import io.ktor.http.*
 object Captcha {
 
     suspend fun createSession(easyMode: Boolean): String {
-        val response = commonHttpClient
+        val response = httpClient
             .post(config.captchaApiUrl + "/service/create") {
                 header("apiKey", config.captchaApiKey)
                 header("isTagged", easyMode)
@@ -18,7 +18,7 @@ object Captcha {
     }
 
     suspend fun getVerifyResult(sessionId: String): String? {
-        val response = commonHttpClient.get(config.captchaApiUrl + "/service/result") {
+        val response = httpClient.get(config.captchaApiUrl + "/service/result") {
             header("sessionId", sessionId)
         }
         return if (response.status == HttpStatusCode.Forbidden) null

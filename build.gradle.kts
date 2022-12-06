@@ -3,13 +3,10 @@ import org.jetbrains.kotlin.gradle.targets.jvm.KotlinJvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    kotlin("multiplatform") version "1.7.20"
-    kotlin("plugin.serialization") version "1.7.20"
+    kotlin("multiplatform") version "1.7.22"
+    kotlin("plugin.serialization") version "1.7.22"
     id("com.github.johnrengelman.shadow") version "7.1.2"
 }
-
-group = "icu.nullptr"
-version = "1.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
@@ -31,8 +28,8 @@ kotlin {
 
     @Suppress("UNUSED_VARIABLE")
     sourceSets {
-        val telegramBotApi = "4.0.0"
-        val exposedVersion = "0.40.1"
+        val telegramBotApi = "4.2.0"
+        val exposedVersion = "0.41.1"
         val ktorVersion = "2.1.3"
 
         val commonMain by getting {
