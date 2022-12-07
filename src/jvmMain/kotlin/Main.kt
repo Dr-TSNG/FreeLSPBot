@@ -126,6 +126,7 @@ suspend fun main() {
             sendMessage(msg.chat, result.toString(), parseMode = MarkdownV2)
         }
 
+        installChatBot()
         installCS408()
         installJoinRequestVerification()
     }.join()

@@ -62,6 +62,8 @@ object Messages {
     fun cs408PoolStatus(total: Int, remaining: Int) = "当前题库中加载了 $total 道题，题池中剩余 $remaining 道题"
     fun cs408RefreshPool(total: Int) = "已刷新题库，加载了 $total 道题"
 
+    fun gptError(reason: String) = "GPT 服务出错：$reason"
+
     sealed interface Private {
         val verifyStart: String
         val verifyPassed: String
