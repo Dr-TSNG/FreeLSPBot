@@ -33,6 +33,9 @@ object Messages {
     const val verifyNameMaskDisabled = "用户名打码已禁用"
     const val verifyRegexInvalid = "无效的正则表达式"
 
+    const val gptAddedToken = "token 已添加，感谢你的贡献"
+    const val gptClearedToken = "已清空你提交的 token"
+
     fun errorOccurred(e: Throwable) = "发生未知错误\n" + e.message?.replace(config.token, "******")
     fun cmdAdminRequired(permission: String) = "该指令仅限具有 $permission 权限的管理员才能使用"
 
@@ -63,6 +66,8 @@ object Messages {
     fun cs408RefreshPool(total: Int) = "已刷新题库，加载了 $total 道题"
 
     fun gptError(reason: String) = "GPT 服务出错：$reason"
+    fun gptTokens(total: Number, yours: Number) = "目前总共加载了 $total 个 token，你贡献了 $yours 个"
+    fun gptStatistics(total: Number, yours: Number) = "目前总共生成了 $total 个句子，你的 token 贡献了 $yours 个"
 
     sealed interface Private {
         val verifyStart: String

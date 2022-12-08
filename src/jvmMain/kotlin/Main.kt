@@ -38,7 +38,9 @@ import java.time.Duration
 
 val config = Json.decodeFromString<Config>(File("data/config.json").readText())
 
-val httpClient = HttpClient(OkHttp)
+val httpClient = HttpClient(OkHttp) {
+    install(HttpTimeout)
+}
 
 val logger = KotlinLogging.logger {}
 lateinit var botSelf: ExtendedBot
