@@ -8,13 +8,14 @@ import io.ktor.client.plugins.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
+import io.ktor.network.sockets.*
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 import logger
 import org.jetbrains.exposed.sql.Random
-import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.io.IOException
 
@@ -42,10 +43,27 @@ object ChatGpt {
         @SerialName("max_tokens") val maxTokens: Int = 2048
     )
 
+    suspend fun testToken(token: String): Result<Unit> = runCatching {
+        val resp = httpClient.post(API_URL) {
+            header("Content-Type", "application/json")
+            header("Authorization", "Bearer $token")
+            setBody(formatter.encodeToString(ChatRequest("Hello")))
+        }
+        if (!resp.status.isSuccess()) {
+            throw IOException("OpenAI API returned ${resp.status}")
+        }
+    }
+
     suspend fun chat(conversation: Conversation): Result<Conversation> = runCatching {
         logger.debug("New gpt chat")
         val dao = transaction {
-            ChatGptDao.wrapRow(ChatGptTable.selectAll().orderBy(Random()).limit(1).first())
+            ChatGptDao.find { ChatGptTable.expired eq false }
+                .orderBy(Random() to SortOrder.ASC)
+                .limit(1).firstOrNull()
+        }
+        if (dao == null) {
+            logger.warn("No openai token available")
+            throw IOException("No openai token available")
         }
         val resp = httpClient.post(API_URL) {
             header("Content-Type", "application/json")
@@ -54,6 +72,9 @@ object ChatGpt {
         }
 
         if (resp.status != HttpStatusCode.OK) {
+            if (resp.status == HttpStatusCode.Unauthorized || resp.status == HttpStatusCode.TooManyRequests) {
+                transaction { dao.expired = true }
+            }
             throw IOException("OpenAI API returned ${resp.status}")
         }
 

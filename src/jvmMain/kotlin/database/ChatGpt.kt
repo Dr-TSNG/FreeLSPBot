@@ -8,7 +8,8 @@ import org.jetbrains.exposed.dao.id.IntIdTable
 object ChatGptTable : IntIdTable(name = "chat_gpt") {
     val user = long("user")
     val token = text("token")
-    val used = integer("used")
+    val used = integer("used").default(0)
+    val expired = bool("expired").default(false)
 }
 
 class ChatGptDao(id: EntityID<Int>) : IntEntity(id) {
@@ -17,4 +18,5 @@ class ChatGptDao(id: EntityID<Int>) : IntEntity(id) {
     var user by ChatGptTable.user
     var token by ChatGptTable.token
     var used by ChatGptTable.used
+    var expired by ChatGptTable.expired
 }

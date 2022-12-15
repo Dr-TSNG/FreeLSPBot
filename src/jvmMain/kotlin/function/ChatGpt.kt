@@ -53,8 +53,13 @@ suspend fun installChatBot() {
     }
 
     onCommandWithArgs("gpt_chat") { msg, args ->
-        val hasContribution = true // msg.from != null && transaction { ChatGptDao.find { ChatGptTable.user eq msg.from!!.id.chatId }.count() > 0 }
+        val validUser = transaction { ChatGptDao.find { ChatGptTable.user eq msg.from!!.id.chatId }.count() > 0 }
+        val hasContribution = msg.from != null && validUser
         if (!hasContribution && !enforceInGroup(msg)) return@onCommandWithArgs
+        if (args.isEmpty()) {
+            reply(msg, Messages.cmdIllegalArgument)
+            return@onCommandWithArgs
+        }
         val ask = args.joinToString(" ")
         val result = ChatGpt.chat(ChatGpt.Conversation().ask(ask))
         dealContext(msg, result)
@@ -62,12 +67,15 @@ suspend fun installChatBot() {
 
     onCommand("gpt_tokens") { msg ->
         val user = msg.from ?: return@onCommand
-        val (total, yours) = transaction {
-            val total = ChatGptDao.all().count()
-            val yours = ChatGptDao.find { ChatGptTable.user eq user.id.chatId }.count()
-            total to yours
+        val reply = transaction {
+            val all = ChatGptDao.all()
+            val total = all.count()
+            val valid = all.count { !it.expired }
+            val yours = all.count { it.user == user.id.chatId }
+            val yoursValid = all.count { !it.expired && it.user == user.id.chatId }
+            Messages.gptTokens(total, valid, yours, yoursValid)
         }
-        reply(msg, Messages.gptTokens(total, yours))
+        reply(msg, reply)
     }
 
     onCommand("gpt_statistics") { msg ->
@@ -86,11 +94,14 @@ suspend fun installChatBot() {
             reply(msg, Messages.cmdIllegalArgument)
             return@onCommandWithArgs
         }
+        ChatGpt.testToken(args[0]).onFailure {
+            reply(msg, Messages.gptError(it.message ?: "Unknown"))
+            return@onCommandWithArgs
+        }
         transaction {
             ChatGptDao.new {
                 this.user = user.id.chatId
                 this.token = args[0]
-                this.used = 0
             }
         }
         reply(msg, Messages.gptAddedToken)

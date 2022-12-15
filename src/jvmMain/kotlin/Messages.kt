@@ -53,10 +53,12 @@ object Messages {
         appendLine("失败封禁时间：$fail2ban")
         appendLine("正则用户名封禁：$regexBan")
     }
+
     fun verifyStatistics(total: Int, passed: Int) = buildString {
         appendLine("当前群聊共进行 $total 次验证，通过 $passed 次")
         appendLine("通过率：%.2f%%".format(passed.toDouble() / total * 100))
     }
+
     fun verifySetTimeout(timeout: String) = "入群验证超时时间已设置为 $timeout"
     fun verifySetFail2Ban(fail2ban: String) = "入群验证失败封禁时间已设置为 $fail2ban"
     fun verifySetRegexBan(regexBan: String) = "入群验证用户名封禁规则" + if (regexBan == "off") "已关闭" else "已设置为 $regexBan"
@@ -66,7 +68,9 @@ object Messages {
     fun cs408RefreshPool(total: Int) = "已刷新题库，加载了 $total 道题"
 
     fun gptError(reason: String) = "GPT 服务出错：$reason"
-    fun gptTokens(total: Number, yours: Number) = "目前总共加载了 $total 个 token，你贡献了 $yours 个"
+    fun gptTokens(total: Number, valid: Number, yours: Number, yoursValid: Number) =
+        "目前加载了 $total 个 token，其中 $valid 个有效\n你贡献了 $yours 个 token，其中 $yoursValid 个有效"
+
     fun gptStatistics(total: Number, yours: Number) = "目前总共生成了 $total 个句子，你的 token 贡献了 $yours 个"
 
     sealed interface Private {
