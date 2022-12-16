@@ -1,9 +1,7 @@
 package function
 
 import Messages
-import database.ChatGptDao
-import database.ChatGptTable
-import database.JoinRequestDao
+import database.*
 import dev.inmo.tgbotapi.extensions.api.send.reply
 import dev.inmo.tgbotapi.extensions.behaviour_builder.BehaviourContext
 import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onCommand
@@ -17,6 +15,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.transactions.transaction
 import plugin.ChatGpt
 import java.util.concurrent.ConcurrentHashMap
@@ -31,8 +31,12 @@ suspend fun installChatBot() {
             reply(msg, Messages.cmdGroupOnly)
             return false
         }
-        val dao = transaction { JoinRequestDao.findById(msg.chat.id.chatId) }
-        if (dao == null) {
+        val whitelist = transaction {
+            GeneralTable.select {
+                (GeneralTable.item eq GeneralKeys.CHATGPT_WHITELIST) and (GeneralTable.value eq msg.chat.id.chatId.toString())
+            }.any()
+        }
+        if (!whitelist) {
             reply(msg, Messages.cmdGroupNotInWhiteList)
             return false
         }
@@ -61,6 +65,15 @@ suspend fun installChatBot() {
             return@onCommandWithArgs
         }
         val ask = args.joinToString(" ")
+        val censorship = transaction {
+            GeneralDao.find { GeneralTable.item eq GeneralKeys.CHATGPT_CENSORSHIP }.map { it.value }.toSet()
+        }
+        for (keyword in censorship) {
+            if (ask.contains(keyword)) {
+                reply(msg, "错误：敏感词汇 $keyword（是的， bot 作者不喜欢这个词）")
+                return@onCommandWithArgs
+            }
+        }
         val result = ChatGpt.chat(ChatGpt.Conversation().ask(ask))
         dealContext(msg, result)
     }
