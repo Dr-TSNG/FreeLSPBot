@@ -56,6 +56,14 @@ suspend fun installChatBot() {
         }
     }
 
+    fun checkForbiddenWords(ask: String): String? {
+        return transaction {
+            GeneralDao.find { GeneralTable.item eq GeneralKeys.CHATGPT_CENSORSHIP }.map { it.value }
+        }.find {
+            ask.contains(it)
+        }
+    }
+
     onCommandWithArgs("gpt_chat") { msg, args ->
         val validUser = transaction { ChatGptDao.find { ChatGptTable.user eq msg.from!!.id.chatId }.count() > 0 }
         val hasContribution = msg.from != null && validUser
@@ -65,14 +73,10 @@ suspend fun installChatBot() {
             return@onCommandWithArgs
         }
         val ask = args.joinToString(" ")
-        val censorship = transaction {
-            GeneralDao.find { GeneralTable.item eq GeneralKeys.CHATGPT_CENSORSHIP }.map { it.value }
-        }
-        for (keyword in censorship) {
-            if (ask.contains(keyword)) {
-                reply(msg, "错误：敏感词汇 $keyword（是的， bot 作者不喜欢这个词）")
-                return@onCommandWithArgs
-            }
+        val keyword = checkForbiddenWords(ask)
+        if (keyword != null) {
+            reply(msg, "错误：敏感词汇 $keyword（是的， bot 作者不喜欢这个词）")
+            return@onCommandWithArgs
         }
         val result = ChatGpt.chat(ChatGpt.Conversation().ask(ask))
         dealContext(msg, result)
@@ -131,6 +135,11 @@ suspend fun installChatBot() {
     onText { msg ->
         val replyMsg = msg.reply_to_message?.messageId ?: return@onText
         val conversation = msgMap[replyMsg] ?: return@onText
+        val keyword = checkForbiddenWords(msg.content.text)
+        if (keyword != null) {
+            reply(msg, "错误：敏感词汇 $keyword（是的， bot 作者不喜欢这个词）")
+            return@onText
+        }
         val result = ChatGpt.chat(conversation.ask(msg.content.text))
         dealContext(msg, result)
     }
