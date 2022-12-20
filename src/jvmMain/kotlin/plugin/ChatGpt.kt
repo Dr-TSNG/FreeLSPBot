@@ -30,6 +30,7 @@ object ChatGpt {
     @JvmInline
     value class Conversation(val context: String = "") {
         val reply get() = context.split("\n\n").last().substringAfter("A: ")
+
         fun ask(prompt: String) = Conversation("$context\n\nQ: $prompt\n\nA: ")
 
         fun answer(answer: String) = Conversation("$context$answer")
@@ -69,6 +70,9 @@ object ChatGpt {
             header("Content-Type", "application/json")
             header("Authorization", "Bearer " + dao.token)
             setBody(formatter.encodeToString(ChatRequest(conversation.context)))
+            timeout {
+                socketTimeoutMillis = 10000
+            }
         }
 
         if (resp.status != HttpStatusCode.OK) {

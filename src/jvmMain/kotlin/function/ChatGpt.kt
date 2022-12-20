@@ -66,7 +66,7 @@ suspend fun installChatBot() {
         }
         val ask = args.joinToString(" ")
         val censorship = transaction {
-            GeneralDao.find { GeneralTable.item eq GeneralKeys.CHATGPT_CENSORSHIP }.map { it.value }.toSet()
+            GeneralDao.find { GeneralTable.item eq GeneralKeys.CHATGPT_CENSORSHIP }.map { it.value }
         }
         for (keyword in censorship) {
             if (ask.contains(keyword)) {
